@@ -1,0 +1,311 @@
+// Full 14-table MySQL-compatible Prisma schema for EthioTutor
+// DB: Aiven MySQL cloud — provider must be "mysql"
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS (MySQL native enums) ───────────────────────────────
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  MODERATOR
+  TUTOR
+  STUDENT
+}
+
+enum Tier {
+  BASIC
+  PRO
+  PREMIUM
+}
+
+enum TenantPlan {
+  basic
+  pro
+}
+
+enum TenantStatus {
+  active
+  suspended
+  trial
+}
+
+enum UserStatus {
+  active
+  suspended
+  pending_verification
+}
+
+enum SlotStatus {
+  available
+  full
+  completed
+  cancelled
+}
+
+enum BookingStatus {
+  pending
+  confirmed
+  completed
+  cancelled
+}
+
+enum SessionStatus {
+  scheduled
+  live
+  completed
+  cancelled
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  refunded
+  failed
+}
+
+// ─── 1. TENANTS ──────────────────────────────────────────────
+model Tenant {
+  tenant_id  Int          @id @default(autoincrement())
+  name       String       @db.VarChar(255)
+  subdomain  String       @unique @db.VarChar(100)
+  plan       TenantPlan   @default(basic)
+  status     TenantStatus @default(active)
+  created_at DateTime     @default(now())
+
+  users            User[]
+  subjects         Subject[]
+  grades           Grade[]
+  teacherSubjects  TeacherSubject[]
+  timeSlots        TimeSlot[]
+  bookings         Booking[]
+  sessions         Session[]
+  sessionRecordings SessionRecording[]
+  transactions     Transaction[]
+  reviews          Review[]
+  notifications    Notification[]
+}
+
+// ─── 2. USERS ────────────────────────────────────────────────
+model User {
+  user_id    Int        @id @default(autoincrement())
+  tenant_id  Int
+  name       String     @db.VarChar(255)
+  email      String     @unique @db.VarChar(255)
+  password   String     @db.VarChar(255)
+  role       Role       @default(STUDENT)
+  tier       Tier       @default(BASIC)
+  phone      String?    @db.VarChar(20)
+  status     UserStatus @default(active)
+  created_at DateTime   @default(now())
+
+  tenant         Tenant          @relation(fields: [tenant_id], references: [tenant_id])
+  teacherProfile TeacherProfile?
+  studentProfile StudentProfile?
+  notifications  Notification[]
+}
+
+// ─── 3. TEACHER_PROFILES ─────────────────────────────────────
+model TeacherProfile {
+  teacher_profile_id Int     @id @default(autoincrement())
+  tenant_id          Int
+  user_id            Int     @unique
+  bio                String? @db.Text
+  qualifications     String? @db.Text
+  experience_years   Int     @default(0)
+  hourly_rate        Decimal @default(0) @db.Decimal(10, 2)
+  languages          String  @default("Amharic") @db.VarChar(255)
+  image_profile      String? @db.VarChar(500)
+  teacher_image      String? @db.VarChar(500)
+  file               String? @db.VarChar(500)
+  average_rating     Decimal @default(0) @db.Decimal(3, 2)
+
+  user            User             @relation(fields: [user_id], references: [user_id])
+  teacherSubjects TeacherSubject[]
+  timeSlots       TimeSlot[]
+  reviews         Review[]
+  transactions    Transaction[]
+}
+
+// ─── 4. STUDENT_PROFILES ─────────────────────────────────────
+model StudentProfile {
+  student_profile_id Int     @id @default(autoincrement())
+  tenant_id          Int
+  user_id            Int     @unique
+  grade_id           Int?
+  learning_goals     String? @db.Text
+  total_spent        Decimal @default(0) @db.Decimal(10, 2)
+  image_profile      String? @db.VarChar(500)
+
+  user     User     @relation(fields: [user_id], references: [user_id])
+  grade    Grade?   @relation(fields: [grade_id], references: [grade_id])
+  bookings Booking[]
+  reviews  Review[]
+  transactions Transaction[]
+}
+
+// ─── 5. SUBJECTS ─────────────────────────────────────────────
+model Subject {
+  subject_id Int     @id @default(autoincrement())
+  tenant_id  Int
+  name       String  @db.VarChar(255)
+  category   String? @db.VarChar(100)
+
+  tenant          Tenant           @relation(fields: [tenant_id], references: [tenant_id])
+  teacherSubjects TeacherSubject[]
+  timeSlots       TimeSlot[]
+}
+
+// ─── 6. GRADES ───────────────────────────────────────────────
+model Grade {
+  grade_id    Int     @id @default(autoincrement())
+  tenant_id   Int
+  grade_name  String  @db.VarChar(50)
+  level_group String? @db.VarChar(50)
+
+  tenant          Tenant           @relation(fields: [tenant_id], references: [tenant_id])
+  studentProfiles StudentProfile[]
+}
+
+// ─── 7. TEACHER_SUBJECTS ─────────────────────────────────────
+model TeacherSubject {
+  id          Int @id @default(autoincrement())
+  tenant_id   Int
+  teacher_id  Int
+  subject_id  Int
+  grade_from  Int @default(1)
+  grade_to    Int @default(12)
+
+  tenant  Tenant         @relation(fields: [tenant_id], references: [tenant_id])
+  teacher TeacherProfile @relation(fields: [teacher_id], references: [teacher_profile_id])
+  subject Subject        @relation(fields: [subject_id], references: [subject_id])
+}
+
+// ─── 8. TIME_SLOTS ───────────────────────────────────────────
+model TimeSlot {
+  slot_id         Int        @id @default(autoincrement())
+  tenant_id       Int
+  teacher_id      Int
+  subject_id      Int
+  slot_date       DateTime   @db.Date
+  start_time      String     @db.VarChar(5)   // "HH:mm" stored as string for MySQL TIME compat
+  end_time        String     @db.VarChar(5)   // "HH:mm"
+  grade_from      Int        @default(1)
+  grade_to        Int        @default(12)
+  selected_grade  Int?
+  max_students    Int        @default(5)
+  remaining_seats Int        @default(5)
+  status          SlotStatus @default(available)
+  created_at      DateTime   @default(now())
+
+  tenant   Tenant         @relation(fields: [tenant_id], references: [tenant_id])
+  teacher  TeacherProfile @relation(fields: [teacher_id], references: [teacher_profile_id])
+  subject  Subject        @relation(fields: [subject_id], references: [subject_id])
+  bookings Booking[]
+  session  Session?
+}
+
+// ─── 9. BOOKINGS ─────────────────────────────────────────────
+model Booking {
+  booking_id    Int           @id @default(autoincrement())
+  tenant_id     Int
+  slot_id       Int
+  student_id    Int
+  student_grade Int?
+  status        BookingStatus @default(pending)
+  created_at    DateTime      @default(now())
+
+  tenant      Tenant         @relation(fields: [tenant_id], references: [tenant_id])
+  slot        TimeSlot       @relation(fields: [slot_id], references: [slot_id])
+  student     StudentProfile @relation(fields: [student_id], references: [student_profile_id])
+  transaction Transaction?
+  review      Review?
+}
+
+// ─── 10. SESSIONS ────────────────────────────────────────────
+model Session {
+  session_id    Int           @id @default(autoincrement())
+  tenant_id     Int
+  slot_id       Int           @unique
+  teacher_id    Int           // user_id of the teacher
+  start_time    DateTime
+  end_time      DateTime?
+  status        SessionStatus @default(scheduled)
+  // LiveKit fields
+  room_name     String?       @unique @db.VarChar(255)
+  meeting_link  String?       @db.VarChar(500)
+
+  tenant    Tenant            @relation(fields: [tenant_id], references: [tenant_id])
+  slot      TimeSlot          @relation(fields: [slot_id], references: [slot_id])
+  recording SessionRecording?
+}
+
+// ─── 11. SESSION_RECORDINGS ──────────────────────────────────
+model SessionRecording {
+  recording_id     Int      @id @default(autoincrement())
+  tenant_id        Int
+  session_id       Int      @unique
+  storage_url      String   @db.VarChar(500)
+  duration_seconds Int?
+  created_at       DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenant_id], references: [tenant_id])
+  session Session @relation(fields: [session_id], references: [session_id])
+}
+
+// ─── 12. TRANSACTIONS ────────────────────────────────────────
+model Transaction {
+  transaction_id      Int           @id @default(autoincrement())
+  tenant_id           Int
+  booking_id          Int           @unique
+  student_id          Int
+  teacher_id          Int
+  total_amount        Decimal       @db.Decimal(10, 2)
+  platform_commission Decimal       @db.Decimal(10, 2)
+  teacher_earnings    Decimal       @db.Decimal(10, 2)
+  payment_status      PaymentStatus @default(pending)
+  chapa_ref           String?       @db.VarChar(255)
+  created_at          DateTime      @default(now())
+
+  tenant  Tenant         @relation(fields: [tenant_id], references: [tenant_id])
+  booking  Booking        @relation(fields: [booking_id], references: [booking_id])
+  student  StudentProfile @relation(fields: [student_id], references: [student_profile_id])
+  teacher  TeacherProfile @relation(fields: [teacher_id], references: [teacher_profile_id])
+}
+
+// ─── 13. REVIEWS ─────────────────────────────────────────────
+model Review {
+  review_id  Int      @id @default(autoincrement())
+  tenant_id  Int
+  booking_id Int      @unique
+  student_id Int
+  teacher_id Int
+  rating     Int      // 1–5
+  comment    String?  @db.Text
+  created_at DateTime @default(now())
+
+  tenant  Tenant         @relation(fields: [tenant_id], references: [tenant_id])
+  booking Booking        @relation(fields: [booking_id], references: [booking_id])
+  student StudentProfile @relation(fields: [student_id], references: [student_profile_id])
+  teacher TeacherProfile @relation(fields: [teacher_id], references: [teacher_profile_id])
+}
+
+// ─── 14. NOTIFICATIONS ───────────────────────────────────────
+model Notification {
+  notification_id Int      @id @default(autoincrement())
+  tenant_id       Int
+  recipient_id    Int
+  title           String   @db.VarChar(255)
+  message         String   @db.Text
+  is_read         Boolean  @default(false)
+  created_at      DateTime @default(now())
+
+  tenant    Tenant @relation(fields: [tenant_id], references: [tenant_id])
+  recipient User   @relation(fields: [recipient_id], references: [user_id])
+}
