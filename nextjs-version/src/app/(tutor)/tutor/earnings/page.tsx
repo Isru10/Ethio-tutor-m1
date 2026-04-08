@@ -12,12 +12,21 @@ import {
 } from "@tanstack/react-table"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { useAuthStore } from "@/store/authStore"
-import { getTutorEarnings } from "@/lib/services/tutorService"
-import type { TutorEarningRow } from "@/types/tutor"
+import { useAuthStore } from "@/lib/store/useAuthStore"
+import { API_BASE } from "@/lib/api"
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts"
+
+interface TutorEarningRow {
+  date: string
+  studentName: string
+  subject: string
+  grossAmount: number
+  commission: number
+  netAmount: number
+  paymentStatus: string
+}
 
 export default function TutorEarningsPage() {
   const { user } = useAuthStore()
@@ -27,10 +36,23 @@ export default function TutorEarningsPage() {
 
   useEffect(() => {
     if (!user) return
-    getTutorEarnings(user.user_id, user.tenant_id).then((data: TutorEarningRow[]) => {
-      setRows(data)
-      setLoading(false)
+    fetch(`${API_BASE}/transactions/my`, {
+      headers: { Authorization: `Bearer ${useAuthStore.getState().accessToken}` },
     })
+      .then(r => r.json())
+      .then(res => {
+        const data: any[] = res.data ?? []
+        setRows(data.map(tx => ({
+          date:          tx.created_at?.split("T")[0] ?? "",
+          studentName:   tx.student?.user?.name ?? "Student",
+          subject:       tx.booking?.slot?.subject?.name ?? "Session",
+          grossAmount:   Number(tx.total_amount ?? 0),
+          commission:    Number(tx.platform_commission ?? 0),
+          netAmount:     Number(tx.teacher_earnings ?? 0),
+          paymentStatus: tx.payout_status === "paid_out" ? "paid" : tx.payment_status ?? "pending",
+        })))
+      })
+      .finally(() => setLoading(false))
   }, [user])
 
   const stats = useMemo(() => ({

@@ -74,11 +74,25 @@ export function SlotCard({ slot, onBook }: SlotCardProps) {
               </div>
             </div>
             {/* Experience + Languages */}
-            <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
-              <Languages className="size-3" />
-              <span className="text-xs truncate">
-                {teacher_profile.experience_years}y exp · {teacher_profile.languages.replace(/,/g, " · ")}
-              </span>
+            <div className="flex items-center gap-1.5 mt-1 text-muted-foreground flex-wrap">
+              <Languages className="size-3 shrink-0" />
+              <span className="text-xs">{teacher_profile.experience_years}y exp</span>
+              <span className="text-xs text-muted-foreground/40">·</span>
+              {(() => {
+                const langs = teacher_profile.languages.split(",").map((l: string) => l.trim()).filter(Boolean)
+                const visible = langs.slice(0, 2)
+                const extra = langs.length - 2
+                return (
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {visible.map((l: string) => (
+                      <span key={l} className="text-xs bg-muted px-1.5 py-0.5 rounded-md">{l}</span>
+                    ))}
+                    {extra > 0 && (
+                      <span className="text-xs bg-muted px-1.5 py-0.5 rounded-md text-muted-foreground">+{extra}</span>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
           </div>
         </div>

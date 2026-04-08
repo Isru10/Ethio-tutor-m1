@@ -15,8 +15,8 @@ import {
   getFilteredRowModel, getPaginationRowModel,
   flexRender, type SortingState, type ColumnFiltersState, type ColumnDef,
 } from "@tanstack/react-table"
-import { useAuthStore } from "@/store/authStore"
-import { getStudentTransactions } from "@/lib/services/dashboardService"
+import { useAuthStore } from "@/lib/store/useAuthStore"
+import { API_BASE } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 interface TxRow {
@@ -46,21 +46,24 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     if (!user) return
-    getStudentTransactions(user.user_id, user.tenant_id).then((data) => {
-      setRows(
-        data.map((d) => ({
-          transaction_id: d.transaction.transaction_id,
-          date:           d.transaction.created_at.split("T")[0],
-          subject:        d.subject.name,
-          teacher_name:   d.teacher.name,
-          amount:         d.transaction.total_amount,
-          commission:     d.transaction.platform_commission,
-          teacher_earnings: d.transaction.teacher_earnings,
-          status:         d.transaction.payment_status,
-        }))
-      )
-      setLoading(false)
+    fetch(`${API_BASE}/transactions/admin/all`, {
+      headers: { Authorization: `Bearer ${useAuthStore.getState().accessToken}` },
     })
+      .then(r => r.json())
+      .then(res => {
+        const data: any[] = res.data ?? []
+        setRows(data.map(tx => ({
+          transaction_id:   tx.transaction_id,
+          date:             tx.created_at?.split("T")[0] ?? "",
+          subject:          tx.booking?.slot?.subject?.name ?? "Session",
+          teacher_name:     tx.teacher?.user?.name ?? "Tutor",
+          amount:           Number(tx.total_amount ?? 0),
+          commission:       Number(tx.platform_commission ?? 0),
+          teacher_earnings: Number(tx.teacher_earnings ?? 0),
+          status:           tx.payment_status ?? "pending",
+        })))
+      })
+      .finally(() => setLoading(false))
   }, [user])
 
   const totalSpent = useMemo(() => rows.reduce((acc, r) => acc + (r.status === "paid" ? r.amount : 0), 0), [rows])
