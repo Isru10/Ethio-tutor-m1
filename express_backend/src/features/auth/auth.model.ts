@@ -22,6 +22,11 @@ export const RegisterSchema = z.object({
   subjects:         z.array(z.string()).optional(),
   grade_from:       z.coerce.number().int().optional(),
   grade_to:         z.coerce.number().int().optional(),
+  // Tutor payout fields
+  payout_method:    z.enum(["telebirr", "bank"]).optional(),
+  payout_phone:     z.string().optional(),
+  payout_bank:      z.string().optional(),
+  payout_account:   z.string().optional(),
 });
 
 export const LoginSchema = z.object({

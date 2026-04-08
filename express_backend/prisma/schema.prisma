@@ -70,6 +70,14 @@ enum PaymentStatus {
   failed
 }
 
+enum PayoutStatus {
+  pending
+  eligible
+  paid_out
+  disputed
+  refunded
+}
+
 // ─── 1. TENANTS ──────────────────────────────────────────────
 model Tenant {
   tenant_id  Int          @id @default(autoincrement())
@@ -125,6 +133,11 @@ model TeacherProfile {
   teacher_image      String? @db.VarChar(500)
   file               String? @db.VarChar(500)
   average_rating     Decimal @default(0) @db.Decimal(3, 2)
+  // Payout info
+  payout_method      String? @db.VarChar(20)   // "telebirr" | "bank"
+  payout_phone       String? @db.VarChar(20)   // Telebirr number
+  payout_bank        String? @db.VarChar(100)  // Bank name
+  payout_account     String? @db.VarChar(50)   // Bank account number
 
   user            User             @relation(fields: [user_id], references: [user_id])
   teacherSubjects TeacherSubject[]
@@ -271,6 +284,11 @@ model Transaction {
   teacher_earnings    Decimal       @db.Decimal(10, 2)
   payment_status      PaymentStatus @default(pending)
   chapa_ref           String?       @db.VarChar(255)
+  // Payout tracking
+  payout_status       PayoutStatus  @default(pending)
+  payout_ref          String?       @db.VarChar(255)
+  payout_at           DateTime?
+  eligible_at         DateTime?     // session_end + 24h
   created_at          DateTime      @default(now())
 
   tenant  Tenant         @relation(fields: [tenant_id], references: [tenant_id])

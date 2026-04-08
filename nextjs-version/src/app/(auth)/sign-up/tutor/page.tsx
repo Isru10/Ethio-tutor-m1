@@ -78,12 +78,20 @@ const step3Schema = z.object({
 })
 
 const step4Schema = z.object({
-  hourlyRate:    z.number().min(50, "Minimum rate is 50 ETB"),
-  maxStudents:   z.enum(["1", "2", "3", "4", "5"]),
-  availableDays: z.array(z.string()).min(1, "Select at least one day"),
-  timeSlots:     z.array(z.string()).min(1, "Select at least one time slot"),
-  terms:         z.boolean().refine((v) => v === true, "You must agree to the terms"),
-})
+  hourlyRate:     z.coerce.number().min(50, "Minimum rate is 50 ETB"),
+  maxStudents:    z.enum(["1", "2", "3", "4", "5"]),
+  availableDays:  z.array(z.string()).min(1, "Select at least one day"),
+  timeSlots:      z.array(z.string()).min(1, "Select at least one time slot"),
+  payout_method:  z.enum(["telebirr", "bank"], { required_error: "Select a payout method" }),
+  payout_phone:   z.string().optional(),
+  payout_bank:    z.string().optional(),
+  payout_account: z.string().optional(),
+  terms:          z.boolean().refine((v) => v === true, "You must agree to the terms"),
+}).refine((d) => {
+  if (d.payout_method === "telebirr") return !!d.payout_phone && d.payout_phone.length >= 9
+  if (d.payout_method === "bank") return !!d.payout_bank && !!d.payout_account
+  return true
+}, { message: "Please complete your payout account details", path: ["payout_phone"] })
 
 type Step1 = z.infer<typeof step1Schema>
 type Step2 = z.infer<typeof step2Schema>
@@ -157,7 +165,7 @@ export default function TutorRegisterPage() {
   })
   const form4 = useForm<Step4>({
     resolver: zodResolver(step4Schema),
-    defaultValues: { hourlyRate: 150, maxStudents: "3", availableDays: [], timeSlots: [], terms: false },
+    defaultValues: { hourlyRate: 150, maxStudents: "3", availableDays: [], timeSlots: [], payout_method: undefined, payout_phone: "", payout_bank: "", payout_account: "", terms: false },
   })
 
   // Handlers — collect data across steps, send everything in one API call at the end
@@ -197,6 +205,10 @@ export default function TutorRegisterPage() {
         grade_from:       gradeNum(s3data.gradeFrom),
         grade_to:         gradeNum(s3data.gradeTo),
         hourly_rate:      data.hourlyRate,
+        payout_method:    data.payout_method,
+        payout_phone:     data.payout_phone,
+        payout_bank:      data.payout_bank,
+        payout_account:   data.payout_account,
       })
 
       setAuth(res.user, res.accessToken, res.refreshToken)
@@ -589,6 +601,69 @@ export default function TutorRegisterPage() {
                         <FormMessage />
                       </FormItem>
                     )} />
+
+                    {/* Payout account */}
+                    <div className="space-y-3">
+                      <p className="text-sm font-medium">Payout Account</p>
+                      <p className="text-xs text-muted-foreground">Where should we send your earnings after each session?</p>
+                      <FormField control={form4.control} name="payout_method" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Payout Method</FormLabel>
+                          <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-3 mt-1">
+                            {[{ value: "telebirr", label: "Telebirr" }, { value: "bank", label: "Bank Transfer" }].map(opt => (
+                              <div key={opt.value}
+                                className={cn(
+                                  "flex-1 flex items-center gap-2 rounded-lg border-2 px-3 py-2.5 cursor-pointer text-sm transition-all",
+                                  field.value === opt.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
+                                )}
+                                onClick={() => field.onChange(opt.value)}
+                              >
+                                <RadioGroupItem value={opt.value} className="hidden" />
+                                <span className="font-medium">{opt.label}</span>
+                              </div>
+                            ))}
+                          </RadioGroup>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+
+                      {form4.watch("payout_method") === "telebirr" && (
+                        <FormField control={form4.control} name="payout_phone" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Telebirr Phone Number</FormLabel>
+                            <FormControl>
+                              <Input placeholder="09XXXXXXXX" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                      )}
+
+                      {form4.watch("payout_method") === "bank" && (
+                        <div className="grid grid-cols-2 gap-3">
+                          <FormField control={form4.control} name="payout_bank" render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Bank Name</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g. CBE, Awash" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )} />
+                          <FormField control={form4.control} name="payout_account" render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Account Number</FormLabel>
+                              <FormControl>
+                                <Input placeholder="1000XXXXXXXXX" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )} />
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator />
 
                     {/* Terms */}
                     <FormField control={form4.control} name="terms" render={({ field }) => (

@@ -2,17 +2,8 @@
 
 import * as React from "react"
 import {
-  LayoutDashboard,
-  Calendar,
-  Video,
-  CreditCard,
-  Bell,
-  User,
-  Users,
-  BookOpen,
-  LayoutPanelLeft,
-  Settings,
-  HelpCircle,
+  LayoutDashboard, CreditCard, Bell, User,
+  Users, BookOpen, Video, Wallet, ShieldAlert,
 } from "lucide-react"
 
 import { SidebarNotification } from "@/components/sidebar-notification"
@@ -20,48 +11,33 @@ import { NavUser } from "@/components/nav-user"
 import { SidebarLogo } from "./shared/sidebar-logo"
 import { SidebarNavItem } from "./shared/sidebar-nav-item"
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
+  Sidebar, SidebarContent, SidebarFooter, SidebarHeader,
 } from "@/components/ui/sidebar"
 
-// ─── ADMIN nav — EthioTutor platform management ──────────────
 const adminNav = [
   {
     label: "Platform",
     items: [
-      { title: "Overview",      url: "/admin/dashboard-2", icon: LayoutDashboard },
-      { title: "All Students",  url: "/admin/users",           icon: Users },
-      { title: "All Tutors",    url: "/admin/users",           icon: BookOpen },
-      { title: "Bookings",      url: "/admin/bookings",        icon: Calendar },
+      { title: "Dashboard",     url: "/admin/admin-dashboard", icon: LayoutDashboard },
+      { title: "Students",      url: "/admin/users",           icon: Users },
+      { title: "Tutors",        url: "/admin/tutors",          icon: BookOpen },
+      { title: "Bookings",      url: "/admin/bookings",        icon: BookOpen },
       { title: "Sessions",      url: "/admin/sessions",        icon: Video },
+    ],
+  },
+  {
+    label: "Finance",
+    items: [
       { title: "Transactions",  url: "/admin/transactions",    icon: CreditCard },
+      { title: "Payouts",       url: "/admin/payouts",         icon: Wallet },
+      { title: "Disputes",      url: "/admin/disputes",        icon: ShieldAlert },
     ],
   },
   {
-    label: "Tools",
+    label: "Account",
     items: [
-      { title: "Calendar",      url: "/admin/calendar",       icon: Calendar },
-      { title: "Mail",          url: "/admin/mail",            icon: LayoutPanelLeft },
-      { title: "Chat",          url: "/admin/chat",            icon: LayoutPanelLeft },
-      { title: "Notifications", url: "/admin/notifications",  icon: Bell },
-    ],
-  },
-  {
-    label: "Configuration",
-    items: [
-      {
-        title: "Settings", url: "#", icon: Settings,
-        items: [
-          { title: "Account",       url: "/admin/settings/account" },
-          { title: "Appearance",    url: "/admin/settings/appearance" },
-          { title: "Billing",       url: "/admin/settings/billing" },
-          { title: "Notifications", url: "/admin/settings/notifications" },
-        ],
-      },
-      { title: "Profile",  url: "/admin/profile", icon: User },
-      { title: "FAQs",     url: "/admin/faqs",    icon: HelpCircle },
+      { title: "Notifications", url: "/admin/notifications",   icon: Bell },
+      { title: "Profile",       url: "/admin/profile",         icon: User },
     ],
   },
 ]
@@ -70,10 +46,10 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
   return (
     <Sidebar {...props}>
       <SidebarHeader>
-        <SidebarLogo 
-          homeUrl="/admin/admin-dashboard" 
-          appName="EthioTutor Admin" 
-          appSubtitle="Admin Dashboard" 
+        <SidebarLogo
+          homeUrl="/admin/admin-dashboard"
+          appName="EthioTutor"
+          appSubtitle="Admin Panel"
         />
       </SidebarHeader>
       <SidebarContent>

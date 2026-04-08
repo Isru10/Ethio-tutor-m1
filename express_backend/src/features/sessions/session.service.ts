@@ -205,7 +205,21 @@ export const sessionService = {
       data:  { status: "completed" },
     });
 
-    // 4. Close the LiveKit room (ends all streams)
+    // 4. Set payout eligible_at = now + 24h on all paid transactions for this slot
+    const eligibleAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await prisma.transaction.updateMany({
+      where: {
+        booking: { slot_id: session.slot_id },
+        payment_status: "paid",
+        payout_status:  "pending",
+      },
+      data: {
+        payout_status: "eligible",
+        eligible_at:   eligibleAt,
+      },
+    });
+
+    // 5. Close the LiveKit room (ends all streams)
     if (session.room_name) {
       await deleteRoom(session.room_name);
     }

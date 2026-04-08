@@ -66,6 +66,16 @@ export const bookingService = {
       }
     }
 
+    // Prevent duplicate: student cannot book the same slot twice (unless cancelled)
+    const existing = await prisma.booking.findFirst({
+      where: {
+        slot_id:    input.slotId,
+        student_id: profileId,
+        status:     { in: ["pending", "confirmed"] },
+      },
+    });
+    if (existing) throw new AppError("You have already booked this session.", 409);
+
     const slot = await prisma.timeSlot.findUnique({ where: { slot_id: input.slotId } });
     if (!slot)                     throw new AppError("Slot not found.", 404);
     if (slot.remaining_seats <= 0) throw new AppError("Slot is fully booked.", 409);
