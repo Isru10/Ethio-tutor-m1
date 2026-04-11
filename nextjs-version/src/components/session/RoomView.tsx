@@ -31,7 +31,7 @@ function useElapsedTimer(startedAt: Date) {
   }, [startedAt]);
   const m = Math.floor(elapsed / 60).toString().padStart(2, "0");
   const s = (elapsed % 60).toString().padStart(2, "0");
-  return { display: `${m}:${s}`, seconds: elapsed };
+  return { display: `${m}:${s}` };
 }
 
 function useCountdown(endTime?: Date) {
@@ -57,7 +57,6 @@ export default function RoomView({
   const sessionStart = useRef(new Date());
   const { display: elapsed } = useElapsedTimer(sessionStart.current);
   const remaining = useCountdown(scheduledEndTime);
-
   const warned5 = useRef(false);
   const warned1 = useRef(false);
   const autoEnded = useRef(false);
@@ -76,9 +75,7 @@ export default function RoomView({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? "Failed to end session");
-      window.location.href = isTutor
-        ? "/tutor/tutor-dashboard"
-        : `/review/${sessionId}`;
+      window.location.href = isTutor ? "/tutor/tutor-dashboard" : `/review/${sessionId}`;
     } catch (err: any) {
       toast.error(err.message);
       autoEnded.current = false;
@@ -86,7 +83,6 @@ export default function RoomView({
     }
   }, [sessionId, isTutor]);
 
-  // 5-min warning + auto-end
   useEffect(() => {
     if (remaining === null) return;
     if (remaining <= 300 && remaining > 60 && !warned5.current) {
@@ -138,7 +134,7 @@ export default function RoomView({
             <span className="inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse" />
             LIVE
           </div>
-          <h1 className="text-base font-semibold text-white">
+          <h1 className="text-base font-semibold text-white truncate max-w-[140px] sm:max-w-none">
             {roomName.split("-").slice(0, 3).join(" ")}
           </h1>
           <span className="text-xs font-mono text-gray-400 bg-gray-800 px-2 py-0.5 rounded">
@@ -175,9 +171,7 @@ export default function RoomView({
               className="gap-1.5 text-xs bg-red-600 hover:bg-red-700 text-white border-0 ml-2"
               onClick={handleEndSession}
             >
-              {ending
-                ? <Loader2 className="size-3.5 animate-spin" />
-                : <StopCircle className="size-3.5" />}
+              {ending ? <Loader2 className="size-3.5 animate-spin" /> : <StopCircle className="size-3.5" />}
               {ending ? "Ending…" : "End Session"}
             </Button>
           )}
