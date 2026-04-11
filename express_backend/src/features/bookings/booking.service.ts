@@ -90,11 +90,15 @@ export const bookingService = {
   },
 
   async cancel(bookingId: number, userId: number) {
-    const result = await prisma.booking.updateMany({
+    const booking = await prisma.booking.findFirst({
       where: { booking_id: bookingId, student: { user_id: userId }, status: { in: ["pending", "confirmed"] } },
-      data:  { status: "cancelled" },
     });
-    if (result.count === 0) throw new AppError("Booking not found or already cancelled.", 404);
+    if (!booking) throw new AppError("Booking not found or already cancelled.", 404);
+
+    await prisma.$transaction([
+      prisma.booking.update({ where: { booking_id: bookingId }, data: { status: "cancelled" } }),
+      prisma.timeSlot.update({ where: { slot_id: booking.slot_id }, data: { remaining_seats: { increment: 1 } } }),
+    ]);
     return { message: "Booking cancelled." };
   },
 

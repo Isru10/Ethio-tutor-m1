@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { joinSessionApi } from "@/lib/services/sessionService";
 import { useAuthStore } from "@/lib/store/useAuthStore";
+import { API_BASE } from "@/lib/api";
 import RoomView from "@/components/session/RoomView";
 import { Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,37 +21,80 @@ function SessionContent() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sessionData, setSessionData] = useState<{ token: string; serverUrl: string; roomName: string } | null>(null);
+  const [sessionData, setSessionData] = useState<{
+    token: string; serverUrl: string; roomName: string; scheduledEndTime?: Date
+  } | null>(null);
 
   useEffect(() => {
     async function init() {
       if (!sessionId) return;
-      
       try {
         setLoading(true);
+        const raw = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+          headers: { Authorization: `Bearer ${useAuthStore.getState().accessToken ?? ""}` }
+        });
+        const body = await raw.json();
+        const slot = body.data?.slot;
+        // Build scheduled end time from session start_time + slot duration
+        // This is correct even if the tutor starts late
+        let scheduledEndTime: Date | undefined;
+        if (body.data?.start_time && slot?.slot_date && slot?.start_time && slot?.end_time) {
+          const slotStart = slot.start_time.slice(0, 5); // "HH:mm"
+          const slotEnd   = slot.end_time.slice(0, 5);
+          const [sh, sm]  = slotStart.split(":").map(Number);
+          const [eh, em]  = slotEnd.split(":").map(Number);
+          const durationMs = ((eh * 60 + em) - (sh * 60 + sm)) * 60 * 1000;
+          // scheduledEnd = actual session start_time + planned duration
+          const sessionActualStart = new Date(body.data.start_time);
+          scheduledEndTime = new Date(sessionActualStart.getTime() + durationMs);
+        }
 
-        // TUTOR path: token already in URL (from startSessionApi redirect)
         if (urlToken && urlServer) {
-          // fetch roomName from backend so we can label it
-          const raw = await fetch(`http://localhost:5000/api/v1/sessions/${sessionId}`, {
-            headers: { Authorization: `Bearer ${useAuthStore.getState().accessToken ?? ""}` }
-          });
-          const body = await raw.json();
           const roomName = body.data?.room_name ?? sessionId;
-          setSessionData({ token: urlToken, serverUrl: urlServer, roomName });
+          setSessionData({ token: urlToken, serverUrl: urlServer, roomName, scheduledEndTime });
           return;
         }
 
         // STUDENT path: call /join to get a participant token
+        // TUTOR rejoin path: if user is a tutor, they need a fresh token via startSession
+        // We detect tutor by checking if the session's teacher_id matches current user
+        const currentUser = useAuthStore.getState().user;
+        const isTutorRejoin = body.data?.teacher_id === currentUser?.user_id;
+
+        if (isTutorRejoin) {
+          // Tutor rejoining — find their confirmed booking for this slot and restart
+          const slotId = body.data?.slot_id;
+          const bookingRes = await fetch(`${API_BASE}/bookings/tutor`, {
+            headers: { Authorization: `Bearer ${useAuthStore.getState().accessToken ?? ""}` }
+          });
+          const bookingBody = await bookingRes.json();
+          const bookings: any[] = bookingBody.data ?? [];
+          const match = bookings.find((b: any) =>
+            (b.slot?.slot_id ?? b.slot_id) === slotId &&
+            (b.status === "confirmed" || b.status === "completed")
+          );
+          if (!match) throw new Error("Could not find your booking to rejoin.");
+          const startRes = await fetch(`${API_BASE}/sessions/start`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${useAuthStore.getState().accessToken ?? ""}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ bookingId: match.booking_id }),
+          });
+          const startBody = await startRes.json();
+          if (!startRes.ok) throw new Error(startBody.message ?? "Failed to rejoin session");
+          const d = startBody.data;
+          setSessionData({ token: d.token, serverUrl: d.liveKitUrl, roomName: d.roomName, scheduledEndTime });
+          return;
+        }
+
         const data = await joinSessionApi(sessionId, urlToken);
         setSessionData({
           token:     data.token,
           serverUrl: data.liveKitUrl,
-          roomName:  data.roomName
+          roomName:  data.roomName,
+          scheduledEndTime,
         });
       } catch (err: any) {
-        console.error("Failed to join session:", err);
-        setError(err.message || "Could not connect to the session. Are you sure you have a confirmed booking?");
+        setError(err.message || "Could not connect to the session.");
       } finally {
         setLoading(false);
       }
@@ -89,7 +133,9 @@ function SessionContent() {
     <RoomView 
       token={sessionData.token} 
       serverUrl={sessionData.serverUrl} 
-      roomName={sessionData.roomName} 
+      roomName={sessionData.roomName}
+      sessionId={sessionId}
+      scheduledEndTime={sessionData.scheduledEndTime}
     />
   );
 }
