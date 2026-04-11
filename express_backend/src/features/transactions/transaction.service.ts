@@ -179,10 +179,16 @@ export const transactionService = {
       where: { transaction_id: txn.transaction_id },
       data:  { payment_status: "failed" },
     });
-    await prisma.booking.update({
-      where: { booking_id: txn.booking_id },
-      data:  { status: "cancelled" },
-    });
+    await prisma.$transaction([
+      prisma.booking.update({
+        where: { booking_id: txn.booking_id },
+        data:  { status: "cancelled" },
+      }),
+      prisma.timeSlot.update({
+        where: { slot_id: (await prisma.booking.findUnique({ where: { booking_id: txn.booking_id }, select: { slot_id: true } }))!.slot_id },
+        data:  { remaining_seats: { increment: 1 } },
+      }),
+    ]);
     return { status: "failed", bookingId: txn.booking_id };
   },
 

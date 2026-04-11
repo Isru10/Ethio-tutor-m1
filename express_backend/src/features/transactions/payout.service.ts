@@ -26,7 +26,10 @@ async function chapaTransfer(payload: {
   });
   const data = await res.json() as ChapaTransferResponse;
   if (!res.ok || data.status !== "success") {
-    throw new AppError(data.message ?? "Chapa transfer failed.", 502);
+    const msg = typeof data.message === "object"
+      ? JSON.stringify(data.message)
+      : (data.message ?? "Chapa transfer failed.");
+    throw new AppError(`Chapa transfer error: ${msg}`, 502);
   }
   return data.data!.transfer_reference;
 }
@@ -55,15 +58,26 @@ export const payoutService = {
       throw new AppError("Tutor has not set up a Telebirr payout number.", 422);
     }
 
+    // Fetch tutor's name for account_name (must be English, min 3 chars)
+    const tutorUser = await prisma.user.findUnique({
+      where: { user_id: teacher.user_id },
+      select: { name: true },
+    });
+    const accountName = (tutorUser?.name ?? "Tutor User")
+      .replace(/[^\w\s]/g, "")   // strip non-English chars
+      .trim()
+      .slice(0, 50) || "Tutor User";
+
     const amount    = Number(txn.teacher_earnings);
     const reference = `PAYOUT-${transactionId}-${Date.now()}`;
 
     const transferPayload = {
-      account_name:   teacher.user_id.toString(),
+      account_name:   accountName,
       account_number: teacher.payout_phone,
       amount,
       currency:       "ETB",
       reference,
+      bank_code:      "855",   // Telebirr bank code in Chapa
     };
 
     const payoutRef = await chapaTransfer(transferPayload);

@@ -136,19 +136,20 @@ export const sessionService = {
     if (session.status !== "live") throw new AppError("This session is not currently live.", 400);
     if (!session.room_name)   throw new AppError("Session room not initialized.", 500);
 
-    // 2. Validate the student has a confirmed booking on this slot
+    // 2. Validate the student has a confirmed OR completed booking on this slot
+    // "completed" covers the case where student left and is rejoining before session ends
     const booking = await prisma.booking.findFirst({
       where: {
         slot_id:   session.slot_id,
         tenant_id: tenantId,
-        status:    "confirmed",
+        status:    { in: ["confirmed", "completed"] },
         student:   { user_id: studentUserId },
       },
       include: { student: { include: { user: true } } },
     });
 
     if (!booking) {
-      throw new AppError("You do not have a confirmed booking for this session.", 403);
+      throw new AppError("You do not have a booking for this session.", 403);
     }
 
     // 3. Generate student token (canPublish: false — student only receives video)
@@ -187,10 +188,16 @@ export const sessionService = {
     if (session.teacher_id !== tutorUserId)   throw new AppError("Only the session host can end it.", 403);
     if (session.status !== "live")            throw new AppError("Session is not live.", 400);
 
-    // 1. Update session record
+    // 1. Calculate actual duration in minutes
+    const endTime = new Date();
+    const durationMinutes = Math.round(
+      (endTime.getTime() - session.start_time.getTime()) / 60000
+    );
+
+    // 2. Update session record with end time and duration
     await prisma.session.update({
       where: { session_id: sessionId },
-      data:  { status: "completed", end_time: new Date() },
+      data:  { status: "completed", end_time: endTime },
     });
 
     // 2. Complete all confirmed bookings on this slot
@@ -205,8 +212,7 @@ export const sessionService = {
       data:  { status: "completed" },
     });
 
-    // 4. Set payout eligible_at = now + 24h on all paid transactions for this slot
-    const eligibleAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    // 4. Mark transactions as eligible for payout immediately
     await prisma.transaction.updateMany({
       where: {
         booking: { slot_id: session.slot_id },
@@ -215,7 +221,7 @@ export const sessionService = {
       },
       data: {
         payout_status: "eligible",
-        eligible_at:   eligibleAt,
+        eligible_at:   new Date(),
       },
     });
 
@@ -224,16 +230,24 @@ export const sessionService = {
       await deleteRoom(session.room_name);
     }
 
-    return { message: "Session ended successfully." };
+    return { message: "Session ended successfully.", durationMinutes } as any;
   },
 
-  /**
-   * GET SESSION — for frontend reconnect / status polling
-   */
   async getSession(sessionId: number, tenantId: number) {
     const session = await prisma.session.findFirst({
       where:   { session_id: sessionId, tenant_id: tenantId },
-      include: { slot: { include: { subject: true } } },
+      include: {
+        slot: {
+          include: {
+            subject: true,
+            teacher: { include: { user: { select: { name: true } } } },
+            bookings: {
+              where: { status: "completed" },
+              include: { student: { include: { user: { select: { user_id: true } } } } },
+            },
+          },
+        },
+      },
     });
     if (!session) throw new AppError("Session not found.", 404);
     return session;
