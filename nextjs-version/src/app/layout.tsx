@@ -12,18 +12,18 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-  
 }: {
   children: React.ReactNode;
 }) {
-  
   return (
-    <html lang="en" className={`${inter.variable} antialiased`}>
-      <body className={inter.className}>
+    <html
+      lang="en"
+      className={`${inter.variable} antialiased`}
+      suppressHydrationWarning
+    >
+      <body className={inter.className} suppressHydrationWarning>
         <ThemeProvider defaultTheme="system" storageKey="nextjs-ui-theme">
-          <SidebarConfigProvider>
-            {children}
-          </SidebarConfigProvider>
+          <SidebarConfigProvider>{children}</SidebarConfigProvider>
         </ThemeProvider>
       </body>
     </html>
