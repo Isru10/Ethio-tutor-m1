@@ -9,7 +9,10 @@ import type { TutorWithProfile, SlotWithDetails } from "@/types/database"
 import { useAuthStore } from "@/store/authStore"
 
 interface TeacherCardProps {
-  tutor: TutorWithProfile
+  tutor: TutorWithProfile & {
+    totalStudentsTaught?: number
+    sessionsWithStudent?: number
+  }
   slots: SlotWithDetails[]
 }
 
@@ -143,23 +146,41 @@ export function TeacherCard({ tutor, slots }: TeacherCardProps) {
         </div>
 
         {/* ── Stats row ── */}
-        <div className="mx-4 grid grid-cols-3 gap-2 rounded-xl bg-muted/40 px-3 py-2.5">
+        <div className="mx-3 grid grid-cols-3 gap-1 rounded-xl bg-muted/40 px-2 py-2">
           <div className="text-center">
-            <p className="text-sm font-bold">{Number(profile.hourly_rate).toLocaleString("en-ET")}</p>
-            <p className="text-[10px] text-muted-foreground">ETB/hr</p>
+            <p className="text-xs font-bold">{Number(profile.hourly_rate).toLocaleString("en-ET")}</p>
+            <p className="text-[9px] text-muted-foreground leading-none">ETB/hr</p>
           </div>
-          <div className="text-center border-x border-border/50">
-            <p className="text-sm font-bold">{profile.experience_years}</p>
-            <p className="text-[10px] text-muted-foreground">yrs exp</p>
+          <div className="text-center border-x border-border/40">
+            <p className="text-xs font-bold">{profile.experience_years}</p>
+            <p className="text-[9px] text-muted-foreground leading-none">yrs exp</p>
           </div>
           <div className="text-center">
-            <p className="text-sm font-bold">{tutor.reviewCount ?? 0}</p>
-            <p className="text-[10px] text-muted-foreground">reviews</p>
+            <p className="text-sm font-bold leading-none">{tutor.reviewCount ?? 0}</p>
+            <p className="text-[9px] text-muted-foreground leading-none">reviews</p>
           </div>
         </div>
 
         {/* ── Slot & availability info ── */}
-        <CardContent className="px-4 pt-3 pb-3 space-y-2 flex-1">
+        <CardContent className="px-4 pt-3 pb-3 space-y-2 flex-1 min-h-0">
+          {/* Dashboard specific stats if available */}
+          {(tutor.totalStudentsTaught !== undefined || tutor.sessionsWithStudent !== undefined) && (
+            <div className="flex flex-wrap items-center justify-between gap-y-2 border-b border-border/50 pb-2 mb-2">
+              {tutor.totalStudentsTaught !== undefined && (
+                <div className="flex items-center gap-1.5 min-w-[80px]">
+                  <span className="text-xs font-extrabold text-primary">{tutor.totalStudentsTaught}+</span>
+                  <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-tight">Students</span>
+                </div>
+              )}
+              {tutor.sessionsWithStudent !== undefined && (
+                <div className="flex items-center gap-1.5 text-right min-w-[80px] justify-end">
+                  <span className="text-xs font-extrabold text-blue-600">{tutor.sessionsWithStudent}</span>
+                  <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-tight">Sessions</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Availability */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
