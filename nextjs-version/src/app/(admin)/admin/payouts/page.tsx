@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Wallet, ShieldAlert, CheckCircle2, Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import { PermissionGuard } from "@/components/permission-guard"
 
 function authHeaders() {
   const token = useAuthStore.getState().accessToken
@@ -23,6 +24,14 @@ async function apiPost(url: string) {
 }
 
 export default function AdminPayoutsPage() {
+  return (
+    <PermissionGuard permission="view_payouts">
+      <PayoutsContent />
+    </PermissionGuard>
+  )
+}
+
+function PayoutsContent() {
   const { user } = useAuthStore()
   const [payouts, setPayouts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { tutorController } from "./tutor.controller";
+import { verificationController } from "./verification.controller";
 import { authMiddleware } from "../../middlewares/auth.middleware";
 import { requireRole } from "../../middlewares/role.middleware";
 
@@ -7,8 +8,15 @@ const router = Router();
 router.use(authMiddleware);
 
 router.get("/",           tutorController.getAll);
-router.get("/:id",        tutorController.getById);
 router.patch("/profile",  requireRole("TUTOR"), tutorController.updateProfile);
+
+// Verification queue — accessible by ADMIN, SUPER_ADMIN, MODERATOR
+router.get("/pending",              requireRole("ADMIN", "SUPER_ADMIN", "MODERATOR"), verificationController.getPending);
+router.post("/:id/claim",           requireRole("ADMIN", "SUPER_ADMIN", "MODERATOR"), verificationController.claim);
+router.post("/:id/release",         requireRole("ADMIN", "SUPER_ADMIN", "MODERATOR"), verificationController.release);
+router.post("/:id/decide",          requireRole("ADMIN", "SUPER_ADMIN", "MODERATOR"), verificationController.decide);
+
+router.get("/:id",        tutorController.getById);
 router.get("/:id/slots",  tutorController.getSlots);
 
 export default router;

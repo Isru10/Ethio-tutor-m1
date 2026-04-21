@@ -6,7 +6,8 @@ import { requireRole } from "../../middlewares/role.middleware";
 const router = Router();
 router.use(authMiddleware);
 
-router.get("/",              requireRole("ADMIN", "SUPER_ADMIN"), userController.getAll);
+router.get("/",              requireRole("ADMIN", "SUPER_ADMIN", "MODERATOR"), userController.getAll);
+router.post("/staff",        requireRole("ADMIN", "SUPER_ADMIN"),              userController.createStaff);
 router.get("/:id",           userController.getById);
 router.patch("/:id",         userController.update);
 router.patch("/:id/suspend", requireRole("ADMIN", "SUPER_ADMIN"), userController.suspend);

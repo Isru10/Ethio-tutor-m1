@@ -6,7 +6,16 @@ export const userService = {
   getAll: (tenantId: number) =>
     prisma.user.findMany({
       where:   { tenant_id: tenantId },
-      select:  { user_id: true, name: true, email: true, role: true, tier: true, status: true, created_at: true },
+      select:  {
+        user_id:    true,
+        name:       true,
+        email:      true,
+        role:       true,
+        tier:       true,
+        status:     true,
+        created_at: true,
+        customRole: { select: { id: true, name: true, permissions: true } },
+      },
       orderBy: { created_at: "desc" },
     }),
 

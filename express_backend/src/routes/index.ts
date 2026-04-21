@@ -10,6 +10,7 @@ import transactionRoute  from "../features/transactions/transaction.route";
 import notificationRoute from "../features/notifications/notification.route";
 import academicRoute     from "../features/academic/academic.route";
 import sessionRoute      from "../features/sessions/session.route";
+import roleRoute         from "../features/roles/role.route";
 
 const router = Router();
 
@@ -23,5 +24,6 @@ router.use("/transactions",  transactionRoute);
 router.use("/notifications", notificationRoute);
 router.use("/academic",      academicRoute);
 router.use("/sessions",      sessionRoute);
+router.use("/roles",         roleRoute);
 
 export default router;

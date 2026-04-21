@@ -69,6 +69,16 @@ export const transactionService = {
       orderBy: { created_at: "desc" },
     }),
 
+  getMyEarnings: (userId: number, tenantId: number) =>
+    prisma.transaction.findMany({
+      where:   { teacher: { user_id: userId }, tenant_id: tenantId },
+      include: {
+        booking: { include: { slot: { include: { subject: true } } } },
+        student: { include: { user: { select: { name: true } } } },
+      },
+      orderBy: { created_at: "desc" },
+    }),
+
   async initiatePayment(bookingId: number, _studentUserId: number, tenantId: number) {
     const booking = await prisma.booking.findUnique({
       where: { booking_id: bookingId },

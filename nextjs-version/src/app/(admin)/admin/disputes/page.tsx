@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ShieldAlert, ThumbsUp, ThumbsDown, Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import { PermissionGuard } from "@/components/permission-guard"
 
 function authHeaders() {
   const token = useAuthStore.getState().accessToken
@@ -15,6 +16,14 @@ function authHeaders() {
 }
 
 export default function AdminDisputesPage() {
+  return (
+    <PermissionGuard permission="manage_disputes">
+      <DisputesContent />
+    </PermissionGuard>
+  )
+}
+
+function DisputesContent() {
   const { user } = useAuthStore()
   const [disputes, setDisputes] = useState<any[]>([])
   const [loading, setLoading] = useState(true)

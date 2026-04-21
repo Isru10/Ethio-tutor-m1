@@ -65,10 +65,11 @@ export async function deleteRoom(roomName: string): Promise<void> {
 //                 both parties can broadcast JSON draw events over
 //                 LiveKit's data channel at zero extra cost.
 export async function generateToken(params: {
-  identity:      string;   // unique user identifier, e.g. "user-42"
-  name:          string;   // display name in the room
+  identity:      string;
+  name:          string;
   roomName:      string;
   isTeacher:     boolean;
+  canPublish?:   boolean;  // override — defaults to isTeacher value
 }): Promise<string> {
   if (!env.LIVEKIT_API_KEY || !env.LIVEKIT_API_SECRET) {
     throw new Error("LiveKit credentials not configured.");
@@ -77,9 +78,9 @@ export async function generateToken(params: {
   const grant: VideoGrant = {
     roomJoin:       true,
     room:           params.roomName,
-    canPublish:     params.isTeacher,   // only tutor publishes video
+    canPublish:     params.canPublish ?? params.isTeacher,
     canSubscribe:   true,
-    canPublishData: true,               // WHITEBOARD — everyone can send data msgs
+    canPublishData: true,
   };
 
   const token = new AccessToken(

@@ -1,6 +1,17 @@
 import type { Request, Response, NextFunction } from "express";
 import { userService } from "./user.service";
 import { UpdateUserSchema } from "./user.model";
+import { z } from "zod";
+import { hashPassword } from "../../utils/password.util";
+import { prisma } from "../../models/prisma.client";
+import { AppError } from "../../middlewares/error.middleware";
+
+const CreateStaffSchema = z.object({
+  name:         z.string().min(2),
+  email:        z.string().email(),
+  password:     z.string().min(6),
+  customRoleId: z.number().int().positive().optional(),
+});
 
 export const userController = {
   getAll: async (req: Request, res: Response, next: NextFunction) => {
@@ -24,5 +35,49 @@ export const userController = {
   delete: async (req: Request, res: Response, next: NextFunction) => {
     try { res.json({ status: "success", data: await userService.delete(req.user!.role, Number(req.params.id)) }); }
     catch (err) { next(err); }
+  },
+
+  /**
+   * POST /users/staff
+   * Admin creates an internal staff account (base role = MODERATOR).
+   * Optionally assigns a custom role in the same request.
+   * Returns the created user + a one-time display password (admin copies & sends manually).
+   */
+  createStaff: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { name, email, password, customRoleId } = CreateStaffSchema.parse(req.body);
+
+      const exists = await prisma.user.findUnique({ where: { email } });
+      if (exists) throw new AppError("Email already registered.", 409);
+
+      if (customRoleId) {
+        const role = await prisma.customRole.findFirst({
+          where: { id: customRoleId, tenant_id: req.user!.tenant_id },
+        });
+        if (!role) throw new AppError("Custom role not found.", 404);
+      }
+
+      const hashed = await hashPassword(password);
+      const user = await prisma.user.create({
+        data: {
+          tenant_id:      req.user!.tenant_id,
+          name,
+          email,
+          password:       hashed,
+          role:           "MODERATOR",
+          custom_role_id: customRoleId ?? null,
+        },
+        select: {
+          user_id:    true,
+          name:       true,
+          email:      true,
+          role:       true,
+          created_at: true,
+          customRole: { select: { id: true, name: true } },
+        },
+      });
+
+      res.status(201).json({ status: "success", data: { user } });
+    } catch (err) { next(err); }
   },
 };

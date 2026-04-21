@@ -2,174 +2,205 @@
 
 import { useState } from "react"
 import {
-  type ColumnDef,
-  type ColumnFiltersState,
-  type SortingState,
-  type VisibilityState,
-  type Row,
-  flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
+  type ColumnDef, type ColumnFiltersState, type SortingState,
+  type VisibilityState, flexRender, getCoreRowModel,
+  getFilteredRowModel, getPaginationRowModel, getSortedRowModel, useReactTable,
 } from "@tanstack/react-table"
 import {
-  ChevronDown,
-  EllipsisVertical,
-  Eye,
-  Pencil,
-  Trash2,
-  Download,
-  Search,
+  ChevronDown, EllipsisVertical, Search, Shield, ShieldOff,
+  Trash2, UserCog, ArrowUpDown, X,
 } from "lucide-react"
-
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent,
+  DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
-import { UserFormDialog } from "./user-form-dialog"
-
-interface User {
-  id: number
-  name: string
-  email: string
-  avatar: string
-  role: string
-  plan: string
-  billing: string
-  status: string
-  joinedDate: string
-  lastLogin: string
-}
-
-interface UserFormValues {
-  name: string
-  email: string
-  role: string
-  plan: string
-  billing: string
-  status: string
-}
+import { cn } from "@/lib/utils"
+import type { UserRow, CustomRole } from "../page"
 
 interface DataTableProps {
-  users: User[]
+  users: UserRow[]
+  roles: CustomRole[]
+  onToggleStatus: (user: UserRow) => void
   onDeleteUser: (id: number) => void
-  onEditUser: (user: User) => void
-  onAddUser: (userData: UserFormValues) => void
+  onAssignRole: (userId: number, roleId: number | null) => void
 }
 
-export function DataTable({ users, onDeleteUser, onEditUser, onAddUser }: DataTableProps) {
-  const [sorting, setSorting] = useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+const STATUS_STYLES: Record<string, string> = {
+  active:               "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400",
+  suspended:            "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400",
+  pending_verification: "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
+}
+
+const ROLE_STYLES: Record<string, string> = {
+  STUDENT:     "bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400",
+  TUTOR:       "bg-violet-100 text-violet-700 dark:bg-violet-950/30 dark:text-violet-400",
+  ADMIN:       "bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400",
+  SUPER_ADMIN: "bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400",
+  MODERATOR:   "bg-teal-100 text-teal-700 dark:bg-teal-950/30 dark:text-teal-400",
+}
+
+const TIER_STYLES: Record<string, string> = {
+  BASIC:   "bg-muted text-muted-foreground",
+  PRO:     "bg-primary/10 text-primary",
+  PREMIUM: "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
+}
+
+function statusLabel(s: string) {
+  if (s === "active") return "Active"
+  if (s === "suspended") return "Suspended"
+  return "Pending"
+}
+
+function AssignRoleDialog({
+  user, roles, open, onOpenChange, onAssign,
+}: {
+  user: UserRow | null
+  roles: CustomRole[]
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  onAssign: (userId: number, roleId: number | null) => void
+}) {
+  const [selected, setSelected] = useState<string>(
+    user?.customRoleId ? String(user.customRoleId) : "none"
+  )
+  if (!user) return null
+
+  const handleSave = () => {
+    onAssign(user.id, selected === "none" ? null : Number(selected))
+    onOpenChange(false)
+  }
+
+  const selectedRole = roles.find(r => r.id === Number(selected))
+  const permList = selectedRole
+    ? (() => { try { return (JSON.parse(selectedRole.permissions) as string[]).map(p => p.replace(/_/g, " ")).join(", ") } catch { return "—" } })()
+    : null
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Assign Custom Role</DialogTitle>
+          <DialogDescription>
+            Control what <strong>{user.name}</strong> can access in the admin panel.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="flex items-center gap-3 rounded-lg border px-3 py-2.5 bg-muted/30">
+            <Avatar className="h-9 w-9">
+              <AvatarFallback className="text-xs font-bold">{user.avatar}</AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="text-sm font-semibold">{user.name}</p>
+              <p className="text-xs text-muted-foreground">{user.email}</p>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Custom Role</Label>
+            <Select value={selected} onValueChange={setSelected}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">
+                  <span className="text-muted-foreground">No custom role</span>
+                </SelectItem>
+                {roles.map(r => (
+                  <SelectItem key={r.id} value={String(r.id)}>{r.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {permList && (
+              <p className="text-xs text-muted-foreground">
+                Permissions: {permList}
+              </p>
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSave}>Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function DataTable({ users, roles, onToggleStatus, onDeleteUser, onAssignRole }: DataTableProps) {
+  const [sorting, setSorting]                   = useState<SortingState>([])
+  const [columnFilters, setColumnFilters]       = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
-  const [rowSelection, setRowSelection] = useState({})
-  const [globalFilter, setGlobalFilter] = useState("")
+  const [rowSelection, setRowSelection]         = useState({})
+  const [globalFilter, setGlobalFilter]         = useState("")
+  const [assignTarget, setAssignTarget]         = useState<UserRow | null>(null)
+  const [assignOpen, setAssignOpen]             = useState(false)
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Active":
-        return "text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/20"
-      case "Pending":
-        return "text-orange-600 bg-orange-50 dark:text-orange-400 dark:bg-orange-900/20"
-      case "Error":
-        return "text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/20"
-      case "Inactive":
-        return "text-gray-600 bg-gray-50 dark:text-gray-400 dark:bg-gray-900/20"
-      default:
-        return "text-gray-600 bg-gray-50 dark:text-gray-400 dark:bg-gray-900/20"
-    }
+  const openAssign = (user: UserRow) => { setAssignTarget(user); setAssignOpen(true) }
+
+  const setFilter = (id: string, value: string) => {
+    setColumnFilters(prev => {
+      const without = prev.filter(f => f.id !== id)
+      return value ? [...without, { id, value }] : without
+    })
   }
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case "Admin":
-        return "text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/20"
-      case "Editor":
-        return "text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/20"
-      case "Author":
-        return "text-yellow-600 bg-yellow-50 dark:text-yellow-400 dark:bg-yellow-900/20"
-      case "Maintainer":
-        return "text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/20"
-      case "Subscriber":
-        return "text-purple-600 bg-purple-50 dark:text-purple-400 dark:bg-purple-900/20"
-      default:
-        return "text-gray-600 bg-gray-50 dark:text-gray-400 dark:bg-gray-900/20"
-    }
-  }
+  const roleFilter   = (columnFilters.find(f => f.id === "role")?.value   as string) ?? ""
+  const statusFilter = (columnFilters.find(f => f.id === "status")?.value as string) ?? ""
 
-  const exactFilter = (row: Row<User>, columnId: string, value: string) => {
-    return row.getValue(columnId) === value
-  }
-
-  const columns: ColumnDef<User>[] = [
+  const columns: ColumnDef<UserRow>[] = [
     {
       id: "select",
       header: ({ table }) => (
-        <div className="flex items-center justify-center px-2">
-          <Checkbox
-            checked={
-              table.getIsAllPageRowsSelected() ||
-              (table.getIsSomePageRowsSelected() && "indeterminate")
-            }
-            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-            aria-label="Select all"
-          />
-        </div>
+        <Checkbox
+          checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
+          onCheckedChange={v => table.toggleAllPageRowsSelected(!!v)}
+          aria-label="Select all"
+        />
       ),
       cell: ({ row }) => (
-        <div className="flex items-center justify-center px-2">
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(!!value)}
-            aria-label="Select row"
-          />
-        </div>
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={v => row.toggleSelected(!!v)}
+          aria-label="Select row"
+        />
       ),
       enableSorting: false,
       enableHiding: false,
-      size: 50,
     },
     {
       accessorKey: "name",
-      header: "User",
+      header: ({ column }) => (
+        <Button variant="ghost" size="sm" className="-ml-3 h-8"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          User <ArrowUpDown className="ml-2 size-3.5" />
+        </Button>
+      ),
       cell: ({ row }) => {
-        const user = row.original
+        const u = row.original
         return (
-          <div className="flex items-center gap-3">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="text-xs font-medium">
-                {user.avatar}
+          <div className="flex items-center gap-3 min-w-0">
+            <Avatar className="h-9 w-9 shrink-0">
+              <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">
+                {u.avatar}
               </AvatarFallback>
             </Avatar>
-            <div className="flex flex-col">
-              <span className="font-medium">{user.name}</span>
-              <span className="text-sm text-muted-foreground">{user.email}</span>
+            <div className="min-w-0">
+              <p className="font-semibold text-sm truncate">{u.name}</p>
+              <p className="text-xs text-muted-foreground truncate">{u.email}</p>
             </div>
           </div>
         )
@@ -181,28 +212,36 @@ export function DataTable({ users, onDeleteUser, onEditUser, onAddUser }: DataTa
       cell: ({ row }) => {
         const role = row.getValue("role") as string
         return (
-          <Badge variant="secondary" className={getRoleColor(role)}>
-            {role}
+          <Badge variant="secondary" className={cn("text-xs capitalize", ROLE_STYLES[role] ?? "")}>
+            {role.replace("_", " ").toLowerCase()}
           </Badge>
         )
       },
-      filterFn: exactFilter,
     },
     {
-      accessorKey: "plan",
+      accessorKey: "tier",
       header: "Plan",
       cell: ({ row }) => {
-        const plan = row.getValue("plan") as string
-        return <span className="font-medium">{plan}</span>
+        const tier = row.getValue("tier") as string
+        return (
+          <Badge variant="secondary" className={cn("text-xs", TIER_STYLES[tier] ?? "")}>
+            {tier.charAt(0) + tier.slice(1).toLowerCase()}
+          </Badge>
+        )
       },
-      filterFn: exactFilter,
     },
     {
-      accessorKey: "billing",
-      header: "Billing",
+      id: "customRole",
+      header: "Custom Role",
       cell: ({ row }) => {
-        const billing = row.getValue("billing") as string
-        return <span className="text-sm">{billing}</span>
+        const u = row.original
+        if (!u.customRoleName) return <span className="text-xs text-muted-foreground">—</span>
+        return (
+          <Badge variant="outline" className="text-xs gap-1">
+            <Shield className="size-3" />
+            {u.customRoleName}
+          </Badge>
+        )
       },
     },
     {
@@ -211,62 +250,54 @@ export function DataTable({ users, onDeleteUser, onEditUser, onAddUser }: DataTa
       cell: ({ row }) => {
         const status = row.getValue("status") as string
         return (
-          <Badge variant="secondary" className={getStatusColor(status)}>
-            {status}
+          <Badge variant="secondary" className={cn("text-xs", STATUS_STYLES[status] ?? "")}>
+            {statusLabel(status)}
           </Badge>
         )
       },
-      filterFn: exactFilter,
+    },
+    {
+      accessorKey: "joinedDate",
+      header: "Joined",
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground">{row.getValue("joinedDate")}</span>
+      ),
     },
     {
       id: "actions",
-      header: "Actions",
+      header: "",
       cell: ({ row }) => {
-        const user = row.original
+        const u = row.original
+        const isSuspended = u.status === "suspended"
         return (
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer">
-              <Eye className="size-4" />
-              <span className="sr-only">View user</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 cursor-pointer"
-              onClick={() => onEditUser(user)}
-            >
-              <Pencil className="size-4" />
-              <span className="sr-only">Edit user</span>
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer">
-                  <EllipsisVertical className="size-4" />
-                  <span className="sr-only">More actions</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem className="cursor-pointer">
-                  View Details
-                </DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer">
-                  Send Email
-                </DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer">
-                  Reset Password
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  className="cursor-pointer"
-                  onClick={() => onDeleteUser(user.id)}
-                >
-                  <Trash2 className="mr-2 size-4" />
-                  Delete User
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <EllipsisVertical className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+                {u.name}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => openAssign(u)}>
+                <UserCog className="size-4" /> Assign Role
+              </DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => onToggleStatus(u)}>
+                {isSuspended
+                  ? <><Shield className="size-4 text-green-600" /> Reactivate</>
+                  : <><ShieldOff className="size-4 text-amber-600" /> Suspend</>}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="cursor-pointer gap-2 text-destructive focus:text-destructive"
+                onClick={() => { if (confirm(`Delete ${u.name}? This cannot be undone.`)) onDeleteUser(u.id) }}
+              >
+                <Trash2 className="size-4" /> Delete User
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )
       },
     },
@@ -284,252 +315,149 @@ export function DataTable({ users, onDeleteUser, onEditUser, onAddUser }: DataTa
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     onGlobalFilterChange: setGlobalFilter,
-    state: {
-      sorting,
-      columnFilters,
-      columnVisibility,
-      rowSelection,
-      globalFilter,
-    },
+    state: { sorting, columnFilters, columnVisibility, rowSelection, globalFilter },
+    initialState: { pagination: { pageSize: 10 } },
   })
 
-  const roleFilter = table.getColumn("role")?.getFilterValue() as string
-  const planFilter = table.getColumn("plan")?.getFilterValue() as string
-  const statusFilter = table.getColumn("status")?.getFilterValue() as string
-
   return (
-    <div className="w-full space-y-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 items-center space-x-2">
-          <div className="relative flex-1 max-w-sm">
+    <>
+      <div className="w-full space-y-4">
+        {/* Toolbar */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative max-w-sm flex-1">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search users..."
-              value={globalFilter ?? ""}
-              onChange={(event) => setGlobalFilter(String(event.target.value))}
+              placeholder="Search by name or email…"
+              value={globalFilter}
+              onChange={e => setGlobalFilter(e.target.value)}
               className="pl-9"
             />
           </div>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" className="cursor-pointer">
-            <Download className="mr-2 size-4" />
-            Export
-          </Button>
-          <UserFormDialog onAddUser={onAddUser} />
-        </div>
-      </div>
-
-      <div className="grid gap-2 sm:grid-cols-4 sm:gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="role-filter" className="text-sm font-medium">
-            Role
-          </Label>
-          <Select
-            value={roleFilter || ""}
-            onValueChange={(value) =>
-              table.getColumn("role")?.setFilterValue(value === "all" ? "" : value)
-            }
-          >
-            <SelectTrigger className="cursor-pointer w-full" id="role-filter">
-              <SelectValue placeholder="Select Role" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Roles</SelectItem>
-              <SelectItem value="Admin">Admin</SelectItem>
-              <SelectItem value="Author">Author</SelectItem>
-              <SelectItem value="Editor">Editor</SelectItem>
-              <SelectItem value="Maintainer">Maintainer</SelectItem>
-              <SelectItem value="Subscriber">Subscriber</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="plan-filter" className="text-sm font-medium">
-            Plan
-          </Label>
-          <Select
-            value={planFilter || ""}
-            onValueChange={(value) =>
-              table.getColumn("plan")?.setFilterValue(value === "all" ? "" : value)
-            }
-          >
-            <SelectTrigger className="cursor-pointer w-full" id="plan-filter">
-              <SelectValue placeholder="Select Plan" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Plans</SelectItem>
-              <SelectItem value="Basic">Basic</SelectItem>
-              <SelectItem value="Professional">Professional</SelectItem>
-              <SelectItem value="Enterprise">Enterprise</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="status-filter" className="text-sm font-medium">
-            Status
-          </Label>
-          <Select
-            value={statusFilter || ""}
-            onValueChange={(value) =>
-              table.getColumn("status")?.setFilterValue(value === "all" ? "" : value)
-            }
-          >
-            <SelectTrigger className="cursor-pointer w-full" id="status-filter">
-              <SelectValue placeholder="Select Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="Active">Active</SelectItem>
-              <SelectItem value="Pending">Pending</SelectItem>
-              <SelectItem value="Error">Error</SelectItem>
-              <SelectItem value="Inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-
-          <Label htmlFor="column-visibility" className="text-sm font-medium">
-            Column Visibility
-          </Label>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild id="column-visibility">
-              <Button variant="outline" className="cursor-pointer w-full">
-                Columns <ChevronDown className="ml-2 size-4" />
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select value={roleFilter || "all"} onValueChange={v => setFilter("role", v === "all" ? "" : v)}>
+              <SelectTrigger className="w-36 h-9">
+                <SelectValue placeholder="All Roles" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Roles</SelectItem>
+                <SelectItem value="STUDENT">Student</SelectItem>
+                <SelectItem value="TUTOR">Tutor</SelectItem>
+                <SelectItem value="ADMIN">Admin</SelectItem>
+                <SelectItem value="MODERATOR">Moderator</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter || "all"} onValueChange={v => setFilter("status", v === "all" ? "" : v)}>
+              <SelectTrigger className="w-36 h-9">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
+                <SelectItem value="pending_verification">Pending</SelectItem>
+              </SelectContent>
+            </Select>
+            {(roleFilter || statusFilter || globalFilter) && (
+              <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-muted-foreground"
+                onClick={() => { setColumnFilters([]); setGlobalFilter("") }}>
+                <X className="size-3.5" /> Clear
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {table
-                .getAllColumns()
-                .filter((column) => column.getCanHide())
-                .map((column) => {
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className="capitalize"
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(value) =>
-                        column.toggleVisibility(!!value)
-                      }
-                    >
-                      {column.id}
-                    </DropdownMenuCheckboxItem>
-                  )
-                })}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 gap-1.5">
+                  Columns <ChevronDown className="size-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {table.getAllColumns().filter(c => c.getCanHide()).map(c => (
+                  <DropdownMenuCheckboxItem key={c.id} className="capitalize"
+                    checked={c.getIsVisible()} onCheckedChange={v => c.toggleVisibility(!!v)}>
+                    {c.id}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-      </div>
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+        {/* Table */}
+        <div className="rounded-lg border overflow-hidden">
+          <Table>
+            <TableHeader className="bg-muted/40">
+              {table.getHeaderGroups().map(hg => (
+                <TableRow key={hg.id}>
+                  {hg.headers.map(h => (
+                    <TableHead key={h.id} className="text-xs font-semibold">
+                      {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
                     </TableHead>
-                  )
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
                   ))}
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No results.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <div className="flex items-center justify-between space-x-2 py-4">
-
-        <div className="flex items-center space-x-2">
-          <Label htmlFor="page-size" className="text-sm font-medium">
-            Show
-          </Label>
-          <Select
-            value={`${table.getState().pagination.pageSize}`}
-            onValueChange={(value) => {
-              table.setPageSize(Number(value))
-            }}
-          >
-            <SelectTrigger className="w-20 cursor-pointer" id="page-size">
-              <SelectValue placeholder={table.getState().pagination.pageSize} />
-            </SelectTrigger>
-            <SelectContent side="top">
-              {[10, 20, 30, 40, 50].map((pageSize) => (
-                <SelectItem key={pageSize} value={`${pageSize}`}>
-                  {pageSize}
-                </SelectItem>
               ))}
-            </SelectContent>
-          </Select>
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length ? (
+                table.getRowModel().rows.map(row => (
+                  <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}
+                    className="hover:bg-muted/30 transition-colors">
+                    {row.getVisibleCells().map(cell => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-32 text-center text-muted-foreground text-sm">
+                    No users found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </div>
-        <div className="flex-1 text-sm text-muted-foreground hidden sm:block">
-          {table.getFilteredSelectedRowModel().rows.length} of{" "}
-          {table.getFilteredRowModel().rows.length} row(s) selected.
-        </div>
-        <div className="flex items-center space-x-6 lg:space-x-8">
-          <div className="flex items-center space-x-2 hidden sm:block">
-            <p className="text-sm font-medium">Page</p>
-            <strong className="text-sm">
-              {table.getState().pagination.pageIndex + 1} of{" "}
-              {table.getPageCount()}
-            </strong>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-              className="cursor-pointer"
-            >
+
+        {/* Pagination */}
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {table.getFilteredSelectedRowModel().rows.length > 0
+              ? `${table.getFilteredSelectedRowModel().rows.length} of `
+              : ""}
+            {table.getFilteredRowModel().rows.length} user(s)
+          </p>
+          <div className="flex items-center gap-2">
+            <Select value={String(table.getState().pagination.pageSize)}
+              onValueChange={v => table.setPageSize(Number(v))}>
+              <SelectTrigger className="w-24 h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[10, 20, 50].map(n => (
+                  <SelectItem key={n} value={String(n)}>{n} / page</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
               Previous
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-              className="cursor-pointer"
-            >
+            <span className="text-sm text-muted-foreground">
+              {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
+            </span>
+            <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
               Next
             </Button>
           </div>
         </div>
       </div>
-    </div>
+
+      <AssignRoleDialog
+        user={assignTarget}
+        roles={roles}
+        open={assignOpen}
+        onOpenChange={setAssignOpen}
+        onAssign={onAssignRole}
+      />
+    </>
   )
 }
