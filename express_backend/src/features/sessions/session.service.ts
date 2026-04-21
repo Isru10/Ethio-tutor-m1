@@ -152,13 +152,13 @@ export const sessionService = {
       throw new AppError("You do not have a booking for this session.", 403);
     }
 
-    // 3. Generate student token (canPublish: false — student only receives video)
-    //    canPublishData: true — student CAN send whiteboard events
+    // 3. Generate student token — canPublish: true so students can use camera/mic
     const token = await generateToken({
-      identity:  `user-${studentUserId}`,
-      name:      booking.student.user.name,
-      roomName:  session.room_name,
-      isTeacher: false,
+      identity:   `user-${studentUserId}`,
+      name:       booking.student.user.name,
+      roomName:   session.room_name,
+      isTeacher:  false,
+      canPublish: true,
     });
 
     return {

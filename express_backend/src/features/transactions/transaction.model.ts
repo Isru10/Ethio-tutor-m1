@@ -6,6 +6,9 @@ export const InitiatePaymentSchema = z.object({
   amount:    z.coerce.number().positive(),
 });
 
+
+
+
 export type InitiatePaymentInput = z.infer<typeof InitiatePaymentSchema>;
 export type PaymentStatus        = "pending" | "paid" | "refunded" | "failed";
 
@@ -17,6 +20,10 @@ export interface TransactionRow {
   payment_status:      PaymentStatus;
   created_at:          Date;
   booking: {
-    slot: { subject: { name: string }; slot_date: Date };
+    slot: { 
+      subject: { 
+        name: string 
+      }; 
+      slot_date: Date };
   };
 }

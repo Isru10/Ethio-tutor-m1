@@ -2,9 +2,18 @@ import type { Request, Response, NextFunction } from "express";
 import { transactionService, verifyWebhookSignature } from "./transaction.service";
 
 export const transactionController = {
+
+ 
+
   getMyTransactions: async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json({ status: "success", data: await transactionService.getMyTransactions(req.user!.user_id, req.user!.tenant_id) });
+    } catch (err) { next(err); }
+  },
+
+  getMyEarnings: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json({ status: "success", data: await transactionService.getMyEarnings(req.user!.user_id, req.user!.tenant_id) });
     } catch (err) { next(err); }
   },
 

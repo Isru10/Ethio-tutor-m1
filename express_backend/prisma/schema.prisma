@@ -98,22 +98,38 @@ model Tenant {
   transactions     Transaction[]
   reviews          Review[]
   notifications    Notification[]
+  customRoles      CustomRole[]
+}
+
+// ─── 1b. CUSTOM ROLES ────────────────────────────────────────
+model CustomRole {
+  id          Int      @id @default(autoincrement())
+  tenant_id   Int
+  name        String   @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  permissions String   @db.Text  // JSON array: ["view_tutors","verify_tutors"]
+  created_at  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenant_id], references: [tenant_id])
+  users  User[]
 }
 
 // ─── 2. USERS ────────────────────────────────────────────────
 model User {
-  user_id    Int        @id @default(autoincrement())
-  tenant_id  Int
-  name       String     @db.VarChar(255)
-  email      String     @unique @db.VarChar(255)
-  password   String     @db.VarChar(255)
-  role       Role       @default(STUDENT)
-  tier       Tier       @default(BASIC)
-  phone      String?    @db.VarChar(20)
-  status     UserStatus @default(active)
-  created_at DateTime   @default(now())
+  user_id        Int        @id @default(autoincrement())
+  tenant_id      Int
+  name           String     @db.VarChar(255)
+  email          String     @unique @db.VarChar(255)
+  password       String     @db.VarChar(255)
+  role           Role       @default(STUDENT)
+  tier           Tier       @default(BASIC)
+  phone          String?    @db.VarChar(20)
+  status         UserStatus @default(active)
+  custom_role_id Int?
+  created_at     DateTime   @default(now())
 
   tenant         Tenant          @relation(fields: [tenant_id], references: [tenant_id])
+  customRole     CustomRole?     @relation(fields: [custom_role_id], references: [id])
   teacherProfile TeacherProfile?
   studentProfile StudentProfile?
   notifications  Notification[]
@@ -138,6 +154,13 @@ model TeacherProfile {
   payout_phone       String? @db.VarChar(20)   // Telebirr number
   payout_bank        String? @db.VarChar(100)  // Bank name
   payout_account     String? @db.VarChar(50)   // Bank account number
+  // Verification
+  verification_status String  @default("pending") @db.VarChar(20) // pending | approved | rejected | pending_info
+  verification_note   String? @db.Text          // reviewer's note
+  reviewed_by         Int?                      // reviewer user_id
+  reviewed_at         DateTime?
+  locked_by           Int?                      // reviewer currently viewing (claim lock)
+  locked_at           DateTime?                 // lock expires after 10 min
 
   user            User             @relation(fields: [user_id], references: [user_id])
   teacherSubjects TeacherSubject[]

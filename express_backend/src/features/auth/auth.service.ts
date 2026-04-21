@@ -12,7 +12,10 @@ export const authService = {
     const hashed = await hashPassword(password);
 
     const user = await prisma.user.create({
-      data: { name, email, password: hashed, role: role as any, tenant_id: tenantId, phone },
+      data: { name, email, password: hashed, role: role as any, tenant_id: tenantId, phone,
+        // Tutors start as pending until a reviewer approves them
+        status: role === "TUTOR" ? "pending_verification" : "active",
+      },
       select: { user_id: true, email: true, role: true, tier: true, tenant_id: true, name: true, phone: true },
     });
 
