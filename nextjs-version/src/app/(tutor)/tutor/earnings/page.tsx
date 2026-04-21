@@ -36,7 +36,7 @@ export default function TutorEarningsPage() {
 
   useEffect(() => {
     if (!user) return
-    fetch(`${API_BASE}/transactions/my`, {
+    fetch(`${API_BASE}/transactions/earnings`, {
       headers: { Authorization: `Bearer ${useAuthStore.getState().accessToken}` },
     })
       .then(r => r.json())
@@ -49,17 +49,26 @@ export default function TutorEarningsPage() {
           grossAmount:   Number(tx.total_amount ?? 0),
           commission:    Number(tx.platform_commission ?? 0),
           netAmount:     Number(tx.teacher_earnings ?? 0),
-          paymentStatus: tx.payout_status === "paid_out" ? "paid" : tx.payment_status ?? "pending",
+          paymentStatus: tx.payout_status === "paid_out"
+            ? "paid out"
+            : tx.payout_status === "eligible"
+            ? "eligible"
+            : tx.payout_status === "disputed"
+            ? "disputed"
+            : tx.payment_status === "paid"
+            ? "pending release"
+            : tx.payment_status ?? "pending",
         })))
       })
       .finally(() => setLoading(false))
   }, [user])
 
   const stats = useMemo(() => ({
-    totalGross: rows.reduce((a, r) => a + r.grossAmount, 0),
+    totalGross:      rows.reduce((a, r) => a + r.grossAmount, 0),
     totalCommission: rows.reduce((a, r) => a + r.commission, 0),
-    totalNet: rows.reduce((a, r) => a + r.netAmount, 0),
-    pending: rows.filter(r => r.paymentStatus === "pending").reduce((a, r) => a + r.netAmount, 0),
+    totalNet:        rows.reduce((a, r) => a + r.netAmount, 0),
+    paidOut:         rows.filter(r => r.paymentStatus === "paid out").reduce((a, r) => a + r.netAmount, 0),
+    pending:         rows.filter(r => r.paymentStatus !== "paid out").reduce((a, r) => a + r.netAmount, 0),
   }), [rows])
 
   // Chart: group by month
@@ -89,7 +98,18 @@ export default function TutorEarningsPage() {
       header: "Status",
       cell: i => {
         const v = i.getValue()
-        return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${v === "paid" ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400" : "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"}`}>{v}</span>
+        const styles: Record<string, string> = {
+          "paid out":        "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400",
+          "eligible":        "bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400",
+          "pending release": "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
+          "disputed":        "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400",
+          "pending":         "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+        }
+        return (
+          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${styles[v] ?? styles["pending"]}`}>
+            {v}
+          </span>
+        )
       },
     }),
   ], [])
@@ -115,10 +135,10 @@ export default function TutorEarningsPage() {
       {/* Stat cards */}
       <div className="px-4 lg:px-6 grid gap-4 grid-cols-2 md:grid-cols-4">
         {[
-          { label: "Total Earned",    value: `${stats.totalGross.toLocaleString()} ETB`,      icon: Banknote,      color: "text-foreground" },
-          { label: "Net Payout",      value: `${stats.totalNet.toLocaleString()} ETB`,        icon: TrendingUp,    color: "text-green-500" },
-          { label: "Platform Fees",   value: `${stats.totalCommission.toLocaleString()} ETB`, icon: ArrowDownRight,color: "text-red-500" },
-          { label: "Pending Payout",  value: `${stats.pending.toLocaleString()} ETB`,         icon: Clock,         color: "text-amber-500" },
+          { label: "Total Earned",   value: `${stats.totalGross.toLocaleString()} ETB`,      icon: Banknote,       color: "text-foreground" },
+          { label: "Paid Out",       value: `${stats.paidOut.toLocaleString()} ETB`,         icon: TrendingUp,     color: "text-green-500" },
+          { label: "Platform Fees",  value: `${stats.totalCommission.toLocaleString()} ETB`, icon: ArrowDownRight, color: "text-red-500" },
+          { label: "Pending",        value: `${stats.pending.toLocaleString()} ETB`,         icon: Clock,          color: "text-amber-500" },
         ].map(({ label, value, icon: Icon, color }) => (
           <Card key={label}>
             <CardContent className="pt-6">

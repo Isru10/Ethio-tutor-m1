@@ -1,13 +1,14 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { TutorSidebar } from "@/components/sidebar/tutor-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { ThemeCustomizer, ThemeCustomizerTrigger } from "@/components/theme-customizer";
-import { UpgradeToProButton } from "@/components/upgrade-to-pro-button";
 import { useSidebarConfig } from "@/hooks/use-sidebar-config";
+import { useAuthStore } from "@/lib/store/useAuthStore";
 
 export default function DashboardLayout({
   children,
@@ -16,7 +17,16 @@ export default function DashboardLayout({
 }) {
   const [themeCustomizerOpen, setThemeCustomizerOpen] = React.useState(false);
   const { config } = useSidebarConfig();
-// now lets fix the side bar and the 
+  const { user } = useAuthStore();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!user) return;
+    // Pending tutors must stay in onboarding until approved
+    if (user.role === "TUTOR" && user.status !== "active") {
+      router.replace("/onboarding/values");
+    }
+  }, [user, router]);
   return (
     <SidebarProvider
       style={{
