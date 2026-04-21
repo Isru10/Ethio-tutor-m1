@@ -28,10 +28,10 @@ const onboardingNav = [
   {
     label: "Onboarding",
     items: [
-      { title: "Onboarding Lessons", url: "/lessons", icon: BookOpen },
-      { title: "Our Values", url: "/values", icon: Heart },
-      { title: "Preferred Niches", url: "/preferred", icon: TrendingUp },
-      { title: "FAQ", url: "/faq", icon: HelpCircle },
+      { title: "Onboarding Lessons", url: "/onboarding/lessons", icon: BookOpen },
+      { title: "Our Values", url: "/onboarding/values", icon: Heart },
+      { title: "Preferred Niches", url: "/onboarding/preferred", icon: TrendingUp },
+      { title: "FAQ", url: "/onboarding/faqs", icon: HelpCircle },
     ],
   },
 ]
@@ -41,7 +41,7 @@ export function OnboardingSidebar({ ...props }: React.ComponentProps<typeof Side
     <Sidebar {...props}>
       <SidebarHeader>
         <SidebarLogo 
-          homeUrl="/lessons" 
+          homeUrl="/onboarding/lessons" 
           appName="EthioTutor" 
           appSubtitle="Tutor Onboarding" 
         />
