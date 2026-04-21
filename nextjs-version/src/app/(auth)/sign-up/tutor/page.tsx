@@ -336,7 +336,7 @@ export default function TutorRegisterPage() {
 
       setAuth(res.user, res.accessToken, res.refreshToken);
       setDone(true);
-      setTimeout(() => router.push("/tutor/tutor-dashboard"), 1800);
+      setTimeout(() => router.push("/onboarding/values"), 1800);
     } catch (err: any) {
       setErrorStep1(err.message);
     } finally {

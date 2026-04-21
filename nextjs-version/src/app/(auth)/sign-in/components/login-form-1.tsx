@@ -59,8 +59,10 @@ export function LoginForm1({
       setAuth(res.user, res.accessToken, res.refreshToken)
       
       // Redirect based on role
-      if (res.user.role === "TUTOR") router.push("/tutor/tutor-dashboard")
-      else router.push("/dashboard")
+      const role = res.user.role
+      if (role === "TUTOR")                                          router.push("/tutor/tutor-dashboard")
+      else if (role === "ADMIN" || role === "SUPER_ADMIN" || role === "MODERATOR") router.push("/admin/admin-dashboard")
+      else                                                           router.push("/dashboard")
       
     } catch (err: any) {
       setError(err.message)
