@@ -41,6 +41,7 @@ const step2Schema = z.object({
 
 const step3Schema = z.object({
   max_students: z.number().int().min(1).max(10),
+  description:  z.string().max(500).optional(),
 })
 
 type Step1 = z.infer<typeof step1Schema>
@@ -84,7 +85,7 @@ export function NewSlotDialog({ open, onOpenChange, onCreated }: Props) {
 
   const form1 = useForm<Step1>({ resolver: zodResolver(step1Schema), defaultValues: { subject_id: "", grade_from: 5, grade_to: 12 } })
   const form2 = useForm<Step2>({ resolver: zodResolver(step2Schema), defaultValues: { slot_date: "", start_time: "", end_time: "" } })
-  const form3 = useForm<Step3>({ resolver: zodResolver(step3Schema), defaultValues: { max_students: 5 } })
+  const form3 = useForm<Step3>({ resolver: zodResolver(step3Schema), defaultValues: { max_students: 5, description: "" } })
 
   useEffect(() => {
     if (open) slotService.getSubjects().then(setSubjects).catch(() => {})
@@ -115,6 +116,7 @@ export function NewSlotDialog({ open, onOpenChange, onCreated }: Props) {
         grade_from:   s1.grade_from!,
         grade_to:     s1.grade_to!,
         max_students: data.max_students,
+        description:  data.description || undefined,
       })
       setDone(true)
       setTimeout(() => { handleClose(false); onCreated() }, 1600)
@@ -310,8 +312,7 @@ export function NewSlotDialog({ open, onOpenChange, onCreated }: Props) {
                       <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{apiError}</div>
                     )}
 
-                    <FormField control={form3.control} name="max_students" render={({ field }) => (
-                      <FormItem>
+                    <FormField control={form3.control} name="max_students" render={({ field }) => (                      <FormItem>
                         <FormLabel className="flex items-center gap-1.5"><Users className="size-3.5" /> Max Students</FormLabel>
                         <p className="text-xs text-muted-foreground">How many students can book this slot?</p>
                         <div className="flex gap-2 mt-1">
@@ -328,6 +329,25 @@ export function NewSlotDialog({ open, onOpenChange, onCreated }: Props) {
                             >{n}</button>
                           ))}
                         </div>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+
+                    <Separator />
+
+                    {/* Description */}
+                    <FormField control={form3.control} name="description" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Session Description <span className="text-muted-foreground font-normal text-xs">(optional)</span></FormLabel>
+                        <FormControl>
+                          <textarea
+                            rows={3}
+                            placeholder="What will students learn? Any prerequisites or materials needed?"
+                            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                            {...field}
+                          />
+                        </FormControl>
+                        <p className="text-xs text-muted-foreground">{(field.value ?? "").length}/500</p>
                         <FormMessage />
                       </FormItem>
                     )} />

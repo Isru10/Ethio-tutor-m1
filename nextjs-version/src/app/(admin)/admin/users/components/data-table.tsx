@@ -8,7 +8,7 @@ import {
 } from "@tanstack/react-table"
 import {
   ChevronDown, EllipsisVertical, Search, Shield, ShieldOff,
-  Trash2, UserCog, ArrowUpDown, X,
+  Trash2, UserCog, ArrowUpDown, X, KeyRound, Copy, Check, Loader2,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -30,6 +30,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 import type { UserRow, CustomRole } from "../page"
 
 interface DataTableProps {
@@ -140,6 +141,117 @@ function AssignRoleDialog({
   )
 }
 
+// ── Reset Password Dialog ─────────────────────────────────────
+function ResetPasswordDialog({
+  user, open, onOpenChange,
+}: {
+  user: UserRow | null
+  open: boolean
+  onOpenChange: (v: boolean) => void
+}) {
+  const [loading, setLoading]   = useState(false)
+  const [result, setResult]     = useState<{ newPassword: string } | null>(null)
+  const [copied, setCopied]     = useState(false)
+
+  const handleReset = async () => {
+    if (!user) return
+    setLoading(true)
+    try {
+      const { useAuthStore } = await import("@/lib/store/useAuthStore")
+      const token = useAuthStore.getState().accessToken
+      const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api/v1"
+      const res = await fetch(`${API}/users/${user.id}/reset-password`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message)
+      setResult({ newPassword: data.data.newPassword })
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCopy = () => {
+    if (!result || !user) return
+    navigator.clipboard.writeText(`Email: ${user.email}\nPassword: ${result.newPassword}`)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleClose = () => {
+    setResult(null)
+    setCopied(false)
+    onOpenChange(false)
+  }
+
+  if (!user) return null
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) handleClose() }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <KeyRound className="size-4" /> Reset Password
+          </DialogTitle>
+          <DialogDescription>
+            Generate a new temporary password for <strong>{user.name}</strong>.
+            Share it with them securely.
+          </DialogDescription>
+        </DialogHeader>
+
+        {!result ? (
+          <>
+            <div className="flex items-center gap-3 rounded-lg border px-3 py-2.5 bg-muted/30 text-sm">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
+                {user.avatar}
+              </div>
+              <div>
+                <p className="font-semibold">{user.name}</p>
+                <p className="text-xs text-muted-foreground">{user.email}</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              The current password will be immediately invalidated. The new temporary password will be shown once.
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={handleClose}>Cancel</Button>
+              <Button onClick={handleReset} disabled={loading} className="gap-2">
+                {loading ? <Loader2 className="size-4 animate-spin" /> : <KeyRound className="size-4" />}
+                {loading ? "Resetting…" : "Reset Password"}
+              </Button>
+            </DialogFooter>
+          </>
+        ) : (
+          <>
+            <div className="rounded-lg border bg-muted/30 p-4 space-y-2 font-mono text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-xs">Email</span>
+                <span>{user.email}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-xs">New Password</span>
+                <span className="font-bold">{result.newPassword}</span>
+              </div>
+            </div>
+            <Button variant="outline" className="w-full gap-2" onClick={handleCopy}>
+              {copied ? <><Check className="size-4 text-green-600" /> Copied!</> : <><Copy className="size-4" /> Copy Credentials</>}
+            </Button>
+            <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
+              This password will not be shown again.
+            </p>
+            <DialogFooter>
+              <Button className="w-full" onClick={handleClose}>Done</Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export function DataTable({ users, roles, onToggleStatus, onDeleteUser, onAssignRole }: DataTableProps) {
   const [sorting, setSorting]                   = useState<SortingState>([])
   const [columnFilters, setColumnFilters]       = useState<ColumnFiltersState>([])
@@ -148,8 +260,11 @@ export function DataTable({ users, roles, onToggleStatus, onDeleteUser, onAssign
   const [globalFilter, setGlobalFilter]         = useState("")
   const [assignTarget, setAssignTarget]         = useState<UserRow | null>(null)
   const [assignOpen, setAssignOpen]             = useState(false)
+  const [resetTarget, setResetTarget]           = useState<UserRow | null>(null)
+  const [resetOpen, setResetOpen]               = useState(false)
 
   const openAssign = (user: UserRow) => { setAssignTarget(user); setAssignOpen(true) }
+  const openReset  = (user: UserRow) => { setResetTarget(user);  setResetOpen(true)  }
 
   const setFilter = (id: string, value: string) => {
     setColumnFilters(prev => {
@@ -289,6 +404,11 @@ export function DataTable({ users, roles, onToggleStatus, onDeleteUser, onAssign
                   ? <><Shield className="size-4 text-green-600" /> Reactivate</>
                   : <><ShieldOff className="size-4 text-amber-600" /> Suspend</>}
               </DropdownMenuItem>
+              {u.role === "MODERATOR" && (
+                <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => openReset(u)}>
+                  <KeyRound className="size-4" /> Reset Password
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="cursor-pointer gap-2 text-destructive focus:text-destructive"
@@ -457,6 +577,11 @@ export function DataTable({ users, roles, onToggleStatus, onDeleteUser, onAssign
         open={assignOpen}
         onOpenChange={setAssignOpen}
         onAssign={onAssignRole}
+      />
+      <ResetPasswordDialog
+        user={resetTarget}
+        open={resetOpen}
+        onOpenChange={setResetOpen}
       />
     </>
   )

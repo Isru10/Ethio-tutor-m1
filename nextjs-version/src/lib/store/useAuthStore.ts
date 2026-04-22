@@ -26,9 +26,9 @@ interface AuthState {
   isAuthenticated: boolean;
 
   setAuth: (rawUser: Record<string, any>, accessToken: string, refreshToken: string) => void;
+  updateUser: (partial: Partial<AuthUser>) => void;
   logout: () => void;
 
-  // Computed helpers (used by sidebars)
   isStudent: () => boolean;
   isTutor:   () => boolean;
   isAdmin:   () => boolean;
@@ -69,11 +69,17 @@ export const useAuthStore = create<AuthState>()(
           tier:      rawUser.tier ?? "BASIC",
           plan:      tierToPlan(rawUser.tier ?? "BASIC"),
           phone:     rawUser.phone,
-          status:    rawUser.status ?? "active",
+          status:    rawUser.status ?? "pending_verification",
         };
-        // Persist token in cookie for middleware/SSR access
         setCookie("ethiotutor_token", accessToken);
         set({ user, accessToken, refreshToken, isAuthenticated: true });
+      },
+
+      // Patch only specific fields — used by useRefreshUser to sync status from backend
+      updateUser: (partial) => {
+        set(state => ({
+          user: state.user ? { ...state.user, ...partial } : null,
+        }));
       },
 
       logout: () => {

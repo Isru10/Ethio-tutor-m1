@@ -9,6 +9,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { ThemeCustomizer, ThemeCustomizerTrigger } from "@/components/theme-customizer";
 import { useSidebarConfig } from "@/hooks/use-sidebar-config";
 import { useAuthStore } from "@/lib/store/useAuthStore";
+import { useRefreshUser } from "@/hooks/useRefreshUser";
 
 export default function DashboardLayout({
   children,
@@ -19,6 +20,9 @@ export default function DashboardLayout({
   const { config } = useSidebarConfig();
   const { user } = useAuthStore();
   const router = useRouter();
+
+  // Always sync user status from backend — fixes stale cache after approval
+  useRefreshUser();
 
   useEffect(() => {
     if (!user) return;

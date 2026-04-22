@@ -2,11 +2,7 @@
 
 import * as React from "react"
 import {
-  BookOpen,
-  Heart,
-  TrendingUp,
-  HelpCircle,
-  ArrowLeft,
+  BookOpen, Heart, TrendingUp, HelpCircle, ArrowLeft, User, Bell,
 } from "lucide-react"
 
 import { SidebarNotification } from "@/components/sidebar-notification"
@@ -26,12 +22,20 @@ import Link from "next/link"
 
 const onboardingNav = [
   {
+    label: "Status",
+    items: [
+      { title: "My Status",        url: "/onboarding",          icon: Bell     },
+      { title: "Update Profile",   url: "/onboarding/profile",  icon: User     },
+      { title: "Notifications",    url: "/onboarding/notifications", icon: Bell },
+    ],
+  },
+  {
     label: "Onboarding",
     items: [
-      { title: "Onboarding Lessons", url: "/onboarding/lessons", icon: BookOpen },
-      { title: "Our Values", url: "/onboarding/values", icon: Heart },
-      { title: "Preferred Niches", url: "/onboarding/preferred", icon: TrendingUp },
-      { title: "FAQ", url: "/onboarding/faqs", icon: HelpCircle },
+      { title: "Onboarding Lessons", url: "/onboarding/lessons",   icon: BookOpen  },
+      { title: "Our Values",         url: "/onboarding/values",    icon: Heart     },
+      { title: "Preferred Niches",   url: "/onboarding/preferred", icon: TrendingUp },
+      { title: "FAQ",                url: "/onboarding/faqs",      icon: HelpCircle },
     ],
   },
 ]

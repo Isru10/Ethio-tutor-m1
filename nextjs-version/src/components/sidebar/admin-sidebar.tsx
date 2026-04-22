@@ -3,7 +3,7 @@
 import * as React from "react"
 import {
   LayoutDashboard, CreditCard, Bell, User,
-  Users, BookOpen, Wallet, ShieldAlert, Shield,
+  Users, BookOpen, Wallet, ShieldAlert, Shield, ClipboardList,
   type LucideIcon,
 } from "lucide-react"
 import { SidebarNotification } from "@/components/sidebar-notification"
@@ -25,9 +25,10 @@ const adminNav: {
   {
     label: "Platform",
     items: [
-      { title: "Dashboard",    url: "/admin/admin-dashboard", icon: LayoutDashboard, permission: "view_dashboard" },
-      { title: "Users",        url: "/admin/users",           icon: Users,           permission: "view_users"     },
-      { title: "Tutors",       url: "/admin/tutors",          icon: BookOpen,        permission: "view_tutors"    },
+      { title: "Dashboard",       url: "/admin/admin-dashboard",  icon: LayoutDashboard, permission: "view_dashboard" },
+      { title: "Users",           url: "/admin/users",            icon: Users,           permission: "view_users"     },
+      { title: "Tutors",          url: "/admin/tutors",           icon: BookOpen,        permission: "view_tutors"    },
+      { title: "Review History",  url: "/admin/tutors/history",   icon: ClipboardList,   permission: "verify_tutors"  },
     ],
   },
   {

@@ -9,12 +9,16 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { ThemeCustomizer, ThemeCustomizerTrigger } from "@/components/theme-customizer";
 import { useSidebarConfig } from "@/hooks/use-sidebar-config";
 import { useAuthStore } from "@/lib/store/useAuthStore";
+import { useRefreshUser } from "@/hooks/useRefreshUser";
 
 export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
   const [themeCustomizerOpen, setThemeCustomizerOpen] = React.useState(false);
   const { config } = useSidebarConfig();
   const { user }   = useAuthStore();
   const router     = useRouter();
+
+  // Always sync user status from backend — approved tutors get redirected automatically
+  useRefreshUser();
 
   useEffect(() => {
     if (!user) return;

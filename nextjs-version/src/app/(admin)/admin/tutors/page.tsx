@@ -186,6 +186,11 @@ export default function AdminTutorsPage() {
                             <Badge variant="secondary" className={`text-[10px] ${STATUS_STYLES[t.verification_status] ?? ""}`}>
                               {t.verification_status.replace("_", " ")}
                             </Badge>
+                            {(t as any).resubmit_count > 0 && (
+                              <Badge variant="outline" className="text-[10px] gap-1 border-violet-300 text-violet-700 dark:text-violet-400">
+                                🔄 Resubmission #{(t as any).resubmit_count}
+                              </Badge>
+                            )}
                             {lockedOther && (
                               <Badge variant="outline" className="text-[10px] gap-1">
                                 <Lock className="size-2.5" /> In review
