@@ -16,7 +16,7 @@ export const authService = {
         // Tutors start as pending until a reviewer approves them
         status: role === "TUTOR" ? "pending_verification" : "active",
       },
-      select: { user_id: true, email: true, role: true, tier: true, tenant_id: true, name: true, phone: true },
+      select: { user_id: true, email: true, role: true, tier: true, tenant_id: true, name: true, phone: true, status: true },
     });
 
     // Create profile based on role

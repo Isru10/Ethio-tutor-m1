@@ -123,4 +123,49 @@ export const verificationService = {
 
     return updated;
   },
+
+  /** Tutor resubmits their profile for re-review after rejection or info request */
+  resubmit: async (tutorUserId: number, tenantId: number) => {
+    const profile = await prisma.teacherProfile.findFirst({
+      where: { user_id: tutorUserId, tenant_id: tenantId },
+      include: { user: { select: { name: true } } },
+    });
+    if (!profile) throw new AppError("Profile not found.", 404);
+    if (!["rejected", "pending_info"].includes(profile.verification_status)) {
+      throw new AppError("Only rejected or pending_info profiles can be resubmitted.", 409);
+    }
+
+    const newCount = (profile.resubmit_count ?? 0) + 1;
+
+    await prisma.teacherProfile.update({
+      where: { teacher_profile_id: profile.teacher_profile_id },
+      data: {
+        verification_status: "pending",
+        verification_note:   null,
+        reviewed_by:         null,
+        reviewed_at:         null,
+        locked_by:           null,
+        locked_at:           null,
+        resubmit_count:      newCount,
+      },
+    });
+
+    // Notify all staff (admins + moderators) that a resubmission happened
+    const staff = await prisma.user.findMany({
+      where:  { tenant_id: tenantId, role: { in: ["ADMIN", "SUPER_ADMIN", "MODERATOR"] } },
+      select: { user_id: true },
+    });
+    if (staff.length > 0) {
+      await prisma.notification.createMany({
+        data: staff.map(s => ({
+          tenant_id:    tenantId,
+          recipient_id: s.user_id,
+          title:        "Profile Resubmitted 🔄",
+          message:      `${profile.user.name} has updated and resubmitted their tutor profile for review (attempt #${newCount}).`,
+        })),
+      });
+    }
+
+    return { message: "Profile resubmitted successfully." };
+  },
 };

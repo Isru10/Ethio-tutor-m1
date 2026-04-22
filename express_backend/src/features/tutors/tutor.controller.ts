@@ -4,8 +4,14 @@ import { UpdateTutorProfileSchema } from "./tutor.model";
 
 export const tutorController = {
   getAll: async (req: Request, res: Response, next: NextFunction) => {
-    try { res.json({ status: "success", data: await tutorService.getAll(req.user!.tenant_id) }); }
-    catch (err) { next(err); }
+    try {
+      // includeAll=true returns all tutors for admin/reviewer history
+      if (req.query.includeAll === "true") {
+        res.json({ status: "success", data: await tutorService.getAllForAdmin(req.user!.tenant_id) });
+        return;
+      }
+      res.json({ status: "success", data: await tutorService.getAll(req.user!.tenant_id) });
+    } catch (err) { next(err); }
   },
   getById: async (req: Request, res: Response, next: NextFunction) => {
     try { res.json({ status: "success", data: await tutorService.getById(Number(req.params.id), req.user!.tenant_id) }); }

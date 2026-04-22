@@ -26,4 +26,9 @@ export const bookingController = {
     try { res.json({ status: "success", data: await bookingService.confirm(Number(req.params.id), req.user!.user_id) }); }
     catch (err) { next(err); }
   },
+
+  removeStudent: async (req: Request, res: Response, next: NextFunction) => {
+    try { res.json({ status: "success", data: await bookingService.removeStudent(Number(req.params.id), req.user!.user_id) }); }
+    catch (err) { next(err); }
+  },
 };

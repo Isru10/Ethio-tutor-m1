@@ -48,6 +48,16 @@ export const tutorService = {
   updateProfile: (userId: number, data: UpdateTutorInput) =>
     prisma.teacherProfile.update({ where: { user_id: userId }, data }),
 
+  getAllForAdmin: (tenantId: number) =>
+    prisma.teacherProfile.findMany({
+      where:   { tenant_id: tenantId },
+      include: {
+        user:            { select: { user_id: true, name: true, email: true, created_at: true } },
+        teacherSubjects: { include: { subject: true } },
+      },
+      orderBy: { user: { created_at: "desc" } },
+    }),
+
   getSlots: (tutorId: number, tenantId: number) =>
     prisma.timeSlot.findMany({
       where:   { teacher_id: tutorId, tenant_id: tenantId },

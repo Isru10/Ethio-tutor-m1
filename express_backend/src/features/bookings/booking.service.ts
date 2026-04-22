@@ -25,7 +25,12 @@ export const bookingService = {
           include: {
             subject: true,
             teacher: { include: { user: { select: { name: true } } } },
-            session: { select: { session_id: true, status: true } },
+            session: { select: { session_id: true, status: true, room_name: true } },
+            bookings: {
+              where:   { status: { in: ["confirmed", "completed", "pending"] } },
+              include: { student: { include: { user: { select: { name: true } } } } },
+              orderBy: { created_at: "asc" },
+            },
           },
         },
         transaction: true,
@@ -115,5 +120,22 @@ export const bookingService = {
       where: { booking_id: bookingId },
       data:  { status: "confirmed" },
     });
+  },
+
+  /** Tutor removes a pending (unpaid) student from their slot */
+  async removeStudent(bookingId: number, tutorUserId: number) {
+    const booking = await prisma.booking.findUnique({
+      where: { booking_id: bookingId },
+      include: { slot: { include: { teacher: true } } },
+    });
+    if (!booking) throw new AppError("Booking not found.", 404);
+    if (booking.slot.teacher.user_id !== tutorUserId) throw new AppError("Not your slot.", 403);
+    if (booking.status !== "pending") throw new AppError("Only pending (unpaid) bookings can be removed.", 409);
+
+    await prisma.$transaction([
+      prisma.booking.update({ where: { booking_id: bookingId }, data: { status: "cancelled" } }),
+      prisma.timeSlot.update({ where: { slot_id: booking.slot_id }, data: { remaining_seats: { increment: 1 } } }),
+    ]);
+    return { message: "Student removed from slot." };
   },
 };

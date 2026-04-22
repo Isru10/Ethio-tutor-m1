@@ -16,6 +16,9 @@ router.post("/:id/claim",           requireRole("ADMIN", "SUPER_ADMIN", "MODERAT
 router.post("/:id/release",         requireRole("ADMIN", "SUPER_ADMIN", "MODERATOR"), verificationController.release);
 router.post("/:id/decide",          requireRole("ADMIN", "SUPER_ADMIN", "MODERATOR"), verificationController.decide);
 
+// Tutor resubmits their own profile — TUTOR only
+router.post("/resubmit",            requireRole("TUTOR"), verificationController.resubmit);
+
 router.get("/:id",        tutorController.getById);
 router.get("/:id/slots",  tutorController.getSlots);
 

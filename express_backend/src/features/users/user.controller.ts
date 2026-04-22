@@ -37,6 +37,13 @@ export const userController = {
     catch (err) { next(err); }
   },
 
+  resetStaffPassword: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = await userService.resetStaffPassword(req.user!.role, Number(req.params.id));
+      res.json({ status: "success", data });
+    } catch (err) { next(err); }
+  },
+
   /**
    * POST /users/staff
    * Admin creates an internal staff account (base role = MODERATOR).

@@ -161,6 +161,7 @@ model TeacherProfile {
   reviewed_at         DateTime?
   locked_by           Int?                      // reviewer currently viewing (claim lock)
   locked_at           DateTime?                 // lock expires after 10 min
+  resubmit_count      Int     @default(0)       // how many times tutor has resubmitted
 
   user            User             @relation(fields: [user_id], references: [user_id])
   teacherSubjects TeacherSubject[]
@@ -230,8 +231,9 @@ model TimeSlot {
   teacher_id      Int
   subject_id      Int
   slot_date       DateTime   @db.Date
-  start_time      String     @db.VarChar(5)   // "HH:mm" stored as string for MySQL TIME compat
-  end_time        String     @db.VarChar(5)   // "HH:mm"
+  start_time      String     @db.VarChar(5)
+  end_time        String     @db.VarChar(5)
+  description     String?    @db.Text          // tutor's session description
   grade_from      Int        @default(1)
   grade_to        Int        @default(12)
   selected_grade  Int?

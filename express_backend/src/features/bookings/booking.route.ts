@@ -11,5 +11,6 @@ router.get("/tutor",         requireRole("TUTOR"), bookingController.getTutorBoo
 router.post("/",             bookingController.create);
 router.patch("/:id/cancel",  bookingController.cancel);
 router.patch("/:id/confirm", requireRole("TUTOR"), bookingController.confirm);
+router.delete("/:id/remove", requireRole("TUTOR"), bookingController.removeStudent);
 
 export default router;

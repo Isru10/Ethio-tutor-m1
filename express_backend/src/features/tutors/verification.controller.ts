@@ -37,4 +37,11 @@ export const verificationController = {
       res.json({ status: "success", data });
     } catch (err) { next(err); }
   },
+
+  resubmit: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = await verificationService.resubmit(req.user!.user_id, req.user!.tenant_id);
+      res.json({ status: "success", data });
+    } catch (err) { next(err); }
+  },
 };

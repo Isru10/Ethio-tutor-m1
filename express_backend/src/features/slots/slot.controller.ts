@@ -23,6 +23,15 @@ export const slotController = {
   delete: async (req: Request, res: Response, next: NextFunction) => {
     try { res.json({ status: "success", data: await slotService.delete(Number(req.params.id), req.user!.user_id, req.user!.tenant_id) }); }
     catch (err) { next(err); }
-    
+  },
+
+  update: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { slot_date, start_time, end_time, description } = req.body;
+      res.json({ status: "success", data: await slotService.updateSchedule(
+        Number(req.params.id), req.user!.user_id, req.user!.tenant_id,
+        { slot_date, start_time, end_time, description }
+      )});
+    } catch (err) { next(err); }
   },
 };

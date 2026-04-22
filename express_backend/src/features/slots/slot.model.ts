@@ -9,6 +9,7 @@ export const CreateSlotSchema = z.object({
   grade_from:   z.coerce.number().int().min(1).max(12).default(1),
   grade_to:     z.coerce.number().int().min(1).max(12).default(12),
   max_students: z.coerce.number().int().min(1).max(10).default(5),
+  description:  z.string().max(500).optional(),
 });
 
 export type CreateSlotInput = z.infer<typeof CreateSlotSchema>;
