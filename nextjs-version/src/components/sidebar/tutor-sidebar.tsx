@@ -10,6 +10,7 @@ import {
   Users,
   Star,
   Wallet,
+  Plus,
 } from "lucide-react"
 
 import { SidebarNotification } from "@/components/sidebar-notification"
@@ -30,6 +31,7 @@ const tutorNav = [
     label: "My Portal",
     items: [
       { title: "Dashboard",     url: "/tutor/tutor-dashboard", icon: LayoutDashboard },
+      { title: "New Session",   url: "/tutor/new-session",     icon: Plus },
       { title: "My Sessions",   url: "/tutor/sessions",        icon: Calendar },
       { title: "My Bookings",   url: "/tutor/bookings",        icon: BookOpen },
       { title: "My Students",   url: "/tutor/students",        icon: Users },

@@ -53,8 +53,8 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
         </div>
         <SiteFooter />
       </SidebarInset>
-      <ThemeCustomizerTrigger onClick={() => setThemeCustomizerOpen(true)} />
-      <ThemeCustomizer open={themeCustomizerOpen} onOpenChange={setThemeCustomizerOpen} />
+      {/* <ThemeCustomizerTrigger onClick={() => setThemeCustomizerOpen(true)} />
+      <ThemeCustomizer open={themeCustomizerOpen} onOpenChange={setThemeCustomizerOpen} /> */}
     </SidebarProvider>
   );
 }

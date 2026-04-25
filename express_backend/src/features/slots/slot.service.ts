@@ -51,8 +51,8 @@ export const slotService = {
         grade_to:        data.grade_to,
         max_students:    data.max_students,
         remaining_seats: data.max_students,
-        description:     data.description ?? null,
-      },
+        ...(data.description ? { description: data.description } : {}),
+      } as any,
     });
   },
 
@@ -81,7 +81,7 @@ export const slotService = {
         ...(data.start_time  ? { start_time:  data.start_time }          : {}),
         ...(data.end_time    ? { end_time:    data.end_time }             : {}),
         ...(data.description !== undefined ? { description: data.description } : {}),
-      },
+      } as any,
       include: { subject: true },
     });
   },

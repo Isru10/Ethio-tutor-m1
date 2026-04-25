@@ -5,12 +5,13 @@ const API_URL = API_BASE;
 
 export type CreateSlotPayload = {
   subject_id: number;
-  slot_date: string;    // "YYYY-MM-DD"
-  start_time: string;   // "HH:mm"
-  end_time: string;     // "HH:mm"
+  slot_date: string;
+  start_time: string;
+  end_time: string;
   grade_from: number;
   grade_to: number;
   max_students: number;
+  description?: string;
 };
 
 function getAuthHeaders() {
@@ -51,6 +52,22 @@ export const slotService = {
     const res = await fetch(`${API_URL}/slots/${slotId}`, {
       method: "DELETE",
       headers: getAuthHeaders(),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.message);
+    return result.data;
+  },
+
+  async updateSlot(slotId: number, payload: {
+    slot_date?: string;
+    start_time?: string;
+    end_time?: string;
+    description?: string;
+  }) {
+    const res = await fetch(`${API_URL}/slots/${slotId}`, {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
     });
     const result = await res.json();
     if (!res.ok) throw new Error(result.message);

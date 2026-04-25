@@ -25,23 +25,22 @@ import {
 } from "@/components/ui/sidebar"
 import { useAuthStore } from "@/lib/store/useAuthStore"
 
-// ─── STUDENT nav (basic plan) ────────────────────────────────
 const studentBasicNav = [
   {
     label: "Main",
     items: [
-      { title: "Dashboard",   url: "/dashboard",     icon: LayoutDashboard },
-      { title: "Browse Classes", url: "/browse",     icon: Search },
-      { title: "My Bookings", url: "/bookings",      icon: BookOpen },
-      { title: "My Sessions", url: "/sessions",      icon: Calendar },
-      { title: "Payments",    url: "/transactions",  icon: CreditCard },
+      { title: "Dashboard",      url: "/dashboard",    icon: LayoutDashboard },
+      { title: "Browse Classes", url: "/browse",       icon: Search },
+      { title: "My Bookings",    url: "/bookings",     icon: BookOpen },
+      { title: "My Sessions",    url: "/sessions",     icon: Calendar },
+      { title: "Payments",       url: "/transactions", icon: CreditCard },
     ],
   },
   {
     label: "Account",
     items: [
       { title: "Notifications", url: "/notifications", icon: Bell },
-      { title: "My Profile",    url: "/profile",        icon: User },
+      { title: "My Profile",    url: "/profile",       icon: User },
       {
         title: "Settings",
         url: "#",
@@ -57,24 +56,23 @@ const studentBasicNav = [
   },
 ]
 
-// ─── STUDENT nav (pro plan — adds Recordings) ───────────────
 const studentProNav = [
   {
     label: "Main",
     items: [
-      { title: "Dashboard",     url: "/dashboard",    icon: LayoutDashboard },
-      { title: "Browse Classes",url: "/browse",        icon: Search },
-      { title: "My Bookings",   url: "/bookings",      icon: BookOpen },
-      { title: "My Sessions",   url: "/sessions",      icon: Calendar },
-      { title: "Recordings",    url: "/recordings",    icon: Video },
-      { title: "Payments",      url: "/transactions",  icon: CreditCard },
+      { title: "Dashboard",      url: "/dashboard",    icon: LayoutDashboard },
+      { title: "Browse Classes", url: "/browse",       icon: Search },
+      { title: "My Bookings",    url: "/bookings",     icon: BookOpen },
+      { title: "My Sessions",    url: "/sessions",     icon: Calendar },
+      { title: "Recordings",     url: "/recordings",   icon: Video },
+      { title: "Payments",       url: "/transactions", icon: CreditCard },
     ],
   },
   {
     label: "Account",
     items: [
       { title: "Notifications", url: "/notifications", icon: Bell },
-      { title: "My Profile",    url: "/profile",        icon: User },
+      { title: "My Profile",    url: "/profile",       icon: User },
       {
         title: "Settings",
         url: "#",
@@ -96,12 +94,12 @@ export function StudentSidebar({ ...props }: React.ComponentProps<typeof Sidebar
   const navGroups = isPro ? studentProNav : studentBasicNav
 
   return (
-    <Sidebar {...props}>
+    <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <SidebarLogo 
-          homeUrl="/dashboard" 
-          appName="EthioTutor" 
-          appSubtitle={`Student · ${isPro ? "Pro" : "Basic"}`} 
+        <SidebarLogo
+          homeUrl="/dashboard"
+          appName="EthioTutor"
+          appSubtitle={`Student · ${isPro ? "Pro" : "Basic"}`}
         />
       </SidebarHeader>
       <SidebarContent>
