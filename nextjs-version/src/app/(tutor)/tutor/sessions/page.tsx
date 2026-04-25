@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from "date-fns"
 import {
   Plus, Video, BookOpen, CheckCircle2, Clock,
-  CalendarDays, Users, Trash2, Loader2,
+  CalendarDays, Users, Trash2, Loader2, Pencil,
   ChevronLeft, ChevronRight, Zap,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,6 +22,7 @@ import { useAuthStore } from "@/lib/store/useAuthStore"
 import { slotService } from "@/lib/services/slotService"
 import { getTutorSessionsApi, startSessionApi, type TutorSession } from "@/lib/services/sessionService"
 import { NewSlotDialog } from "./components/new-slot-dialog"
+import { EditSlotDialog } from "./components/edit-slot-dialog"
 
 // ─── Types ────────────────────────────────────────────────────
 type Slot = {
@@ -64,6 +65,7 @@ export default function TutorSessionsPage() {
   const [loading, setLoading] = useState(true)
   const [newSlotOpen, setNewSlotOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Slot | null>(null)
+  const [editTarget, setEditTarget]     = useState<Slot | null>(null)
   const [startingId, setStartingId] = useState<number | null>(null)
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
@@ -152,7 +154,7 @@ export default function TutorSessionsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Sessions & Slots</h1>
           <p className="text-muted-foreground text-sm">Manage your teaching schedule. Click a day to see its slots.</p>
         </div>
-        <Button className="gap-2 shrink-0" onClick={() => setNewSlotOpen(true)}>
+        <Button className="gap-2 shrink-0" onClick={() => router.push("/tutor/new-session")}>
           <Plus className="size-4" /> Add New Session
         </Button>
       </div>
@@ -307,7 +309,7 @@ export default function TutorSessionsPage() {
               <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
                 <CalendarDays className="size-8 text-muted-foreground/30" />
                 <p className="text-xs text-muted-foreground">No slots on this day</p>
-                <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setNewSlotOpen(true)}>
+                <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => router.push("/tutor/new-session")}>
                   <Plus className="size-3.5" /> Add slot for this day
                 </Button>
               </div>
@@ -373,7 +375,14 @@ export default function TutorSessionsPage() {
                     )}
                     <Button
                       size="sm" variant="ghost"
-                      className="gap-1 text-xs h-7 text-destructive hover:text-destructive hover:bg-destructive/10 ml-auto"
+                      className="gap-1 text-xs h-7 text-muted-foreground hover:text-foreground"
+                      onClick={() => setEditTarget(slot)}
+                    >
+                      <Pencil className="size-3" /> Edit
+                    </Button>
+                    <Button
+                      size="sm" variant="ghost"
+                      className="gap-1 text-xs h-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                       onClick={() => setDeleteTarget(slot)}
                     >
                       <Trash2 className="size-3" /> Delete
@@ -432,18 +441,11 @@ export default function TutorSessionsPage() {
             <p className="font-semibold">No sessions yet</p>
             <p className="text-sm text-muted-foreground">Create your first teaching slot so students can find and book you.</p>
           </div>
-          <Button className="gap-2" onClick={() => setNewSlotOpen(true)}>
+          <Button className="gap-2" onClick={() => router.push("/tutor/new-session")}>
             <Plus className="size-4" /> Add New Session
           </Button>
         </div>
       )}
-
-      {/* ── New Slot Dialog ── */}
-      <NewSlotDialog
-        open={newSlotOpen}
-        onOpenChange={setNewSlotOpen}
-        onCreated={loadData}
-      />
 
       {/* ── Delete Confirm Dialog ── */}
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
@@ -462,6 +464,14 @@ export default function TutorSessionsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Edit Slot Dialog ── */}
+      <EditSlotDialog
+        slot={editTarget}
+        open={!!editTarget}
+        onOpenChange={v => { if (!v) setEditTarget(null) }}
+        onUpdated={loadData}
+      />
     </>
   )
 }

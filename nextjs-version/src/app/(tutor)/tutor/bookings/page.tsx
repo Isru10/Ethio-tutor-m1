@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Video,
   Loader2,
+  Pencil,
 } from "lucide-react";
 import {
   Card,
@@ -33,6 +34,7 @@ import {
 import { useAuthStore } from "@/lib/store/useAuthStore";
 import { bookingService } from "@/lib/services/bookingService";
 import { startSessionApi } from "@/lib/services/sessionService";
+import { EditSlotDialog } from "../sessions/components/edit-slot-dialog";
 
 type RawBooking = {
   booking_id: number;
@@ -86,6 +88,7 @@ export default function TutorBookingsPage() {
   const [rawBookings, setRawBookings] = useState<RawBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [startingSlotId, setStartingSlotId] = useState<number | null>(null);
+  const [editTarget, setEditTarget] = useState<any | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -394,6 +397,23 @@ export default function TutorBookingsPage() {
                                   View <ChevronRight className="size-3" />
                                 </Button>
                               )}
+                              {g.overallStatus !== "completed" && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 text-xs gap-1 text-muted-foreground ml-1"
+                                  onClick={() => setEditTarget({
+                                    slot_id:     g.slot_id,
+                                    slot_date:   g.slot_date,
+                                    start_time:  g.start_time,
+                                    end_time:    g.end_time,
+                                    description: null,
+                                    subject:     { name: g.subject },
+                                  })}
+                                >
+                                  <Pencil className="size-3" />
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         );
@@ -415,6 +435,17 @@ export default function TutorBookingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <EditSlotDialog
+        slot={editTarget}
+        open={!!editTarget}
+        onOpenChange={v => { if (!v) setEditTarget(null) }}
+        onUpdated={() => {
+          bookingService.getTutorBookings()
+            .then(data => setRawBookings(data))
+            .catch(() => {})
+        }}
+      />
     </>
   );
 }

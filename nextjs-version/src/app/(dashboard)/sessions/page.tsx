@@ -9,8 +9,10 @@ import {
   Calendar as CalendarIcon, Clock, Video, BookOpen,
   CheckCircle2, ChevronLeft, ChevronRight, CreditCard,
   Share2, Check, Users, Star, X, GraduationCap, FileText,
+  CalendarDays,
 } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -23,6 +25,7 @@ import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/lib/store/useAuthStore"
 import { bookingService } from "@/lib/services/bookingService"
 import { toast } from "sonner"
+import { SessionSlotCard, type SessionCardData } from "./components/session-slot-card"
 
 const SUBJECT_COLORS: Record<string, string> = {
   Mathematics: "#3b82f6", Physics: "#8b5cf6", Chemistry: "#f59e0b",
@@ -82,75 +85,114 @@ function useCountdown(slotDate: string, startTime: string) {
   return { label, urgent }
 }
 
-// ── Compact session card ──────────────────────────────────────
+// ── Compact session card (matches browse card style) ─────────
 function SessionCard({ b, onClick }: { b: Booking; onClick: () => void }) {
   const color     = SUBJECT_COLORS[b.slot.subject.name] ?? DEFAULT_COLOR
   const isLive    = b.slot.session?.status === "live"
+  const isCompleted = b.status === "completed"
   const dateOnly  = slotDateStr(b)
   const startTime = b.slot.start_time.slice(0, 5)
   const endTime   = b.slot.end_time.slice(0, 5)
+  const sessionDate = new Date(`${dateOnly}T${startTime}:00`)
+  const endDate     = new Date(`${dateOnly}T${endTime}:00`)
+  const durationMins = Math.round((endDate.getTime() - sessionDate.getTime()) / 60000)
   const enrolled  = (b.slot.max_students ?? 0) - (b.slot.remaining_seats ?? 0)
+  const fillPct   = b.slot.max_students > 0 ? Math.round((enrolled / b.slot.max_students) * 100) : 0
+  const rating    = Number(b.slot.teacher.average_rating ?? 0)
+  const initials  = b.slot.teacher.user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
   const { label: countdown, urgent } = useCountdown(dateOnly, startTime)
 
   return (
-    <div
+    <Card
       onClick={onClick}
       className={cn(
-        "group relative rounded-2xl border bg-card cursor-pointer overflow-hidden",
-        "transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:border-primary/30",
-        isLive && "ring-2 ring-green-500"
+        "flex flex-col cursor-pointer transition-all duration-200 hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5",
+        isLive && "ring-2 ring-green-500 shadow-green-100 dark:shadow-green-950/20",
+        isCompleted && "opacity-70"
       )}
     >
-      {/* Coloured top strip */}
-      <div className="h-1.5 w-full" style={{ backgroundColor: color }} />
-
-      <div className="p-4 space-y-3">
-        {/* Subject + live badge */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white text-xs font-bold"
-              style={{ background: `linear-gradient(135deg, ${color}, ${color}99)` }}>
-              {b.slot.subject.name.slice(0, 2).toUpperCase()}
-            </div>
-            <div>
-              <p className="font-semibold text-sm leading-tight">{b.slot.subject.name}</p>
-              <p className="text-xs text-muted-foreground">{b.slot.teacher.user.name}</p>
-            </div>
+      {/* Teacher row */}
+      <div className="p-4 pb-3">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white text-sm font-bold shadow-sm"
+            style={{ background: `linear-gradient(135deg, ${color}, ${color}cc)` }}>
+            {initials}
           </div>
-          {isLive
-            ? <Badge className="text-[10px] bg-green-500 text-white animate-pulse shrink-0">LIVE</Badge>
-            : b.status === "confirmed" && countdown
-            ? <span className={cn("text-[10px] font-semibold shrink-0", urgent ? "text-amber-500" : "text-muted-foreground")}>
-                {countdown} left
-              </span>
-            : null
-          }
-        </div>
-
-        {/* Date & time */}
-        <div className="space-y-1">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <CalendarIcon className="size-3 shrink-0" />
-            <span>{format(new Date(`${dateOnly}T00:00`), "EEE, MMM d")}</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Clock className="size-3 shrink-0" />
-            <span>{startTime} – {endTime}</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-1">
+              <p className="font-semibold text-sm leading-tight truncate">{b.slot.teacher.user.name}</p>
+              {isLive
+                ? <Badge className="text-[10px] bg-green-500 text-white animate-pulse shrink-0">LIVE</Badge>
+                : !isCompleted && countdown
+                ? <span className={cn("text-[10px] font-semibold shrink-0", urgent ? "text-amber-500" : "text-muted-foreground")}>
+                    {countdown} left
+                  </span>
+                : null
+              }
+            </div>
+            <div className="flex items-center gap-1 mt-0.5">
+              {rating > 0 && (
+                <span className="flex items-center gap-0.5 text-xs text-amber-500">
+                  <Star className="size-3 fill-amber-400" /> {rating.toFixed(1)}
+                </span>
+              )}
+              <span className="text-xs text-muted-foreground">· {b.slot.teacher.experience_years}y exp</span>
+            </div>
           </div>
         </div>
 
-        {/* Enrolled count */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Users className="size-3" />
-            <span>{enrolled}/{b.slot.max_students}</span>
-          </div>
-          {b.status === "completed" && (
-            <Badge variant="outline" className="text-[10px] text-green-600 border-green-400">Done</Badge>
-          )}
+        {/* Subject + grade badges */}
+        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+          <Badge variant="default" className="text-xs px-2 py-0.5">{b.slot.subject.name}</Badge>
+          {isCompleted && <Badge variant="outline" className="text-xs text-green-600 border-green-400">Completed</Badge>}
         </div>
       </div>
-    </div>
+
+      <CardContent className="pb-3 space-y-2.5">
+        <Separator />
+
+        <div className="flex items-center gap-2 text-sm">
+          <CalendarDays className="size-3.5 shrink-0 text-muted-foreground" />
+          <span>{format(new Date(`${dateOnly}T00:00`), "EEE, MMM d")}</span>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <Clock className="size-3.5 shrink-0 text-muted-foreground" />
+          <span>{startTime} – {endTime}</span>
+          <span className="text-xs text-muted-foreground">({durationMins}m)</span>
+        </div>
+
+        {/* Seat fill */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Users className="size-3.5" />
+              <span><span className="font-semibold text-foreground">{enrolled}</span> / {b.slot.max_students} enrolled</span>
+            </div>
+          </div>
+          <Progress value={fillPct} className="h-1.5" />
+        </div>
+      </CardContent>
+
+      <CardFooter className="pt-0 mt-auto">
+        {isCompleted ? (
+          <Button variant="outline" size="sm" className="w-full text-xs h-8" disabled>
+            Session Ended
+          </Button>
+        ) : b.slot.session ? (
+          <Button size="sm" className="w-full gap-1.5 text-xs h-8" asChild
+            onClick={e => e.stopPropagation()}>
+            <a href={`/room/${b.slot.session!.room_name ?? b.slot.session!.session_id}`}>
+              <Video className="size-3.5" />
+              {isLive ? "Join Live" : "Enter Room"}
+            </a>
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm" className="w-full text-xs h-8" disabled>
+            Waiting for tutor…
+          </Button>
+        )}
+      </CardFooter>
+    </Card>
   )
 }
 
@@ -212,7 +254,10 @@ function SessionSheet({ b, open, onClose }: { b: Booking | null; open: boolean; 
               <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 <FileText className="size-3" /> About this session
               </div>
-              <p className="text-sm leading-relaxed">{b.slot.description}</p>
+              <div
+                className="text-sm leading-relaxed tiptap-editor"
+                dangerouslySetInnerHTML={{ __html: b.slot.description }}
+              />
             </div>
           )}
 
@@ -499,9 +544,9 @@ export default function SessionsPage() {
       {confirmed.length > 0 && (
         <div className="px-4 lg:px-6 space-y-3">
           <h2 className="text-base font-semibold">Upcoming</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {confirmed.map(b => (
-              <SessionCard key={b.booking_id} b={b} onClick={() => setSelected(b)} />
+              <SessionSlotCard key={b.booking_id} booking={b as SessionCardData} onClick={() => setSelected(b)} />
             ))}
           </div>
         </div>
@@ -511,9 +556,9 @@ export default function SessionsPage() {
       {completed.length > 0 && (
         <div className="px-4 lg:px-6 space-y-3">
           <h2 className="text-base font-semibold text-muted-foreground">Past Sessions</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 opacity-75">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {completed.map(b => (
-              <SessionCard key={b.booking_id} b={b} onClick={() => setSelected(b)} />
+              <SessionSlotCard key={b.booking_id} booking={b as SessionCardData} onClick={() => setSelected(b)} />
             ))}
           </div>
         </div>

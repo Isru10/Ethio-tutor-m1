@@ -50,7 +50,7 @@ export function SiteHeader() {
                 )}
               </Link>
             </Button>
-            <ModeToggle />
+            {/* <ModeToggle /> */}
           </div>
         </div>
       </header>

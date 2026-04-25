@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import { slotService } from "@/lib/services/slotService"
+import { RichTextEditor } from "@/components/rich-text-editor"
 
 // ─── Schema (mirrors backend CreateSlotSchema exactly) ───────
 const step1Schema = z.object({
@@ -41,7 +42,7 @@ const step2Schema = z.object({
 
 const step3Schema = z.object({
   max_students: z.number().int().min(1).max(10),
-  description:  z.string().max(500).optional(),
+  description:  z.string().max(2000).optional(),
 })
 
 type Step1 = z.infer<typeof step1Schema>
@@ -335,19 +336,18 @@ export function NewSlotDialog({ open, onOpenChange, onCreated }: Props) {
 
                     <Separator />
 
-                    {/* Description */}
+                    {/* Description — rich text editor */}
                     <FormField control={form3.control} name="description" render={({ field }) => (
                       <FormItem>
                         <FormLabel>Session Description <span className="text-muted-foreground font-normal text-xs">(optional)</span></FormLabel>
                         <FormControl>
-                          <textarea
-                            rows={3}
-                            placeholder="What will students learn? Any prerequisites or materials needed?"
-                            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
-                            {...field}
+                          <RichTextEditor
+                            value={field.value ?? ""}
+                            onChange={field.onChange}
+                            placeholder="What will students learn? Any prerequisites or materials needed? Describe the session content, difficulty level, and what to prepare."
+                            maxLength={2000}
                           />
                         </FormControl>
-                        <p className="text-xs text-muted-foreground">{(field.value ?? "").length}/500</p>
                         <FormMessage />
                       </FormItem>
                     )} />
