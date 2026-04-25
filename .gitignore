@@ -10,3 +10,5 @@ express_backend/.env
 
 # Ignore Next.js build folder
 nextjs-version/.next/
+temp_auto_push.bat
+temp_interactive_push.bat
