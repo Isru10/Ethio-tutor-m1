@@ -46,6 +46,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store/useAuthStore";
 import { authService } from "@/lib/services/authService";
+import { FileUpload } from "@/components/file-upload";
 
 // ─── Steps ───────────────────────────────────────────────────
 const STEPS = [
@@ -241,6 +242,8 @@ export default function TutorRegisterPage() {
   const setAuth = useAuthStore((s) => s.setAuth);
   const [step, setStep] = useState(1);
   const [done, setDone] = useState(false);
+  const [profilePhotoUrl,    setProfilePhotoUrl]    = useState("")
+  const [credentialFileUrl,  setCredentialFileUrl]  = useState("")
 
   const [loadingStep1, setLoadingStep1] = useState(false);
   const [errorStep1, setErrorStep1] = useState<string | null>(null);
@@ -332,6 +335,8 @@ export default function TutorRegisterPage() {
         payout_phone: data.payout_phone,
         payout_bank: data.payout_bank,
         payout_account: data.payout_account,
+        image_profile: profilePhotoUrl || undefined,
+        file: credentialFileUrl || undefined,
       });
 
       setAuth(res.user, res.accessToken, res.refreshToken);
@@ -644,6 +649,25 @@ export default function TutorRegisterPage() {
                           <FormMessage />
                         </FormItem>
                       )}
+                    />
+
+                    {/* File uploads */}
+                    <FileUpload
+                      label="Profile Photo"
+                      accept="image/*"
+                      maxSizeMB={3}
+                      value={profilePhotoUrl}
+                      onChange={setProfilePhotoUrl}
+                      hint="Upload a professional photo (JPG, PNG, max 3MB)"
+                    />
+
+                    <FileUpload
+                      label="Credentials / Degree Certificate"
+                      accept="image/*,application/pdf"
+                      maxSizeMB={5}
+                      value={credentialFileUrl}
+                      onChange={setCredentialFileUrl}
+                      hint="Upload your degree, diploma, or teaching certificate (PDF or image, max 5MB)"
                     />
 
                     <div className="flex justify-between pt-2">

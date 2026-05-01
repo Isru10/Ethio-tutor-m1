@@ -5,7 +5,7 @@ import { AppError } from "../../middlewares/error.middleware";
 import type { RegisterInput, LoginInput } from "./auth.model";
 
 export const authService = {
-  async register({ name, email, password, role, tenantId, phone, grade_name, learning_goals, bio, qualifications, experience_years, hourly_rate, languages, subjects, grade_from, grade_to, payout_method, payout_phone, payout_bank, payout_account }: RegisterInput) {
+  async register({ name, email, password, role, tenantId, phone, grade_name, learning_goals, bio, qualifications, experience_years, hourly_rate, languages, subjects, grade_from, grade_to, payout_method, payout_phone, payout_bank, payout_account, image_profile, file }: RegisterInput) {
     const exists = await prisma.user.findUnique({ where: { email } });
     if (exists) throw new AppError("Email already registered.", 409);
 
@@ -44,6 +44,8 @@ export const authService = {
           payout_phone:     payout_phone ?? null,
           payout_bank:      payout_bank ?? null,
           payout_account:   payout_account ?? null,
+          image_profile:    image_profile ?? null,
+          file:             file ?? null,
         },
       });
 

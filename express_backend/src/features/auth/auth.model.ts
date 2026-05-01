@@ -27,6 +27,8 @@ export const RegisterSchema = z.object({
   payout_phone:     z.string().optional(),
   payout_bank:      z.string().optional(),
   payout_account:   z.string().optional(),
+  image_profile:    z.string().url().optional(),
+  file:             z.string().url().optional(),
 });
 
 export const LoginSchema = z.object({
