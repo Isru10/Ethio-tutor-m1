@@ -1,10 +1,3 @@
-# Ignore Node Modules in both folders
-node_modules/
-nextjs-version/node_modules/
-express_backend/node_modules/
-
-# Ignore Environment variables (Secrets)
-.env
 nextjs-version/.env
 express_backend/.env
 
