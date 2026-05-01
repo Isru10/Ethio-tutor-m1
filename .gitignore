@@ -1,14 +1,5 @@
-# Ignore Node Modules in both folders
-node_modules/
-nextjs-version/node_modules/
-express_backend/node_modules/
-
-# Ignore Environment variables (Secrets)
-.env
 nextjs-version/.env
 express_backend/.env
 
 # Ignore Next.js build folder
 nextjs-version/.next/
-temp_auto_push.bat
-temp_interactive_push.bat
