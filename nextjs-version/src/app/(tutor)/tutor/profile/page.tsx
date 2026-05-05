@@ -1,234 +1,430 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import { z } from "zod"
-import { useState } from "react"
-import { CheckCircle2, Save } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useEffect, useState, useCallback } from "react"
+import { useAuthStore } from "@/lib/store/useAuthStore"
+import { API_BASE } from "@/lib/api"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { FileUpload } from "@/components/file-upload"
+import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from "@/components/ui/form"
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select"
-import { useAuthStore } from "@/store/authStore"
-import { studentProfiles, grades as gradesData } from "@/lib/mockData"
+  Save, Star, BookOpen, Clock, Users, Wallet,
+  CheckCircle2, Globe, Award, Phone, Mail,
+} from "lucide-react"
 
-// ── Schema (identical pattern to settings/account) ─────────
-const profileSchema = z.object({
-  firstName:    z.string().min(1, "First name is required"),
-  lastName:     z.string().min(1, "Last name is required"),
-  email:        z.string().email("Invalid email"),
-  phone:        z.string().min(9, "Enter a valid phone number"),
-  gradeId:      z.string().min(1, "Select your grade"),
-  learningGoals: z.string().min(5, "Tell us your goals"),
-})
+// ─── Constants (same as signup) ──────────────────────────────
+const DAYS        = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+const TIME_SLOTS  = [
+  "07:00 – 08:00", "08:00 – 09:00", "09:00 – 10:00", "10:00 – 11:00",
+  "11:00 – 12:00", "13:00 – 14:00", "14:00 – 15:00", "15:00 – 16:00",
+  "16:00 – 17:00", "17:00 – 18:00", "18:00 – 19:00", "19:00 – 20:00",
+]
+const LANGUAGES   = ["Amharic", "English", "Afaan Oromoo", "Tigrinya", "Somali", "Arabic"]
+const EXP_OPTIONS = ["Less than 1 year", "1–2 years", "3–5 years", "6–10 years", "10+ years"]
+const EXP_TO_NUM: Record<string, number> = {
+  "Less than 1 year": 0, "1–2 years": 1, "3–5 years": 3, "6–10 years": 6, "10+ years": 10,
+}
+const NUM_TO_EXP: Record<number, string> = Object.fromEntries(
+  Object.entries(EXP_TO_NUM).map(([k, v]) => [v, k])
+)
 
-type ProfileValues = z.infer<typeof profileSchema>
+function authHeaders(token: string | null) {
+  return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+}
 
-export default function ProfilePage() {
-  const { user, isPro } = useAuthStore()
-  const [saved, setSaved] = useState(false)
+function toggleArr(arr: string[], val: string) {
+  return arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val]
+}
 
-  const profile = studentProfiles.find(
-    (sp) => sp.user_id === user?.user_id && sp.tenant_id === user?.tenant_id
-  )
-  const [firstName, lastName] = (user?.name ?? "").split(" ")
-  const myGrades = gradesData.filter((g) => g.tenant_id === user?.tenant_id)
-  const initials = user?.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) ?? "?"
+export default function TutorProfilePage() {
+  const { user, accessToken } = useAuthStore()
+  const [profile, setProfile] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving,  setSaving]  = useState(false)
 
-  const form = useForm<ProfileValues>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      firstName:     firstName ?? "",
-      lastName:      lastName  ?? "",
-      email:         user?.email ?? "",
-      phone:         "+251911000004",
-      gradeId:       profile?.grade_id?.toString() ?? "",
-      learningGoals: profile?.learning_goals ?? "",
-    },
-  })
+  // Editable fields
+  const [firstName,    setFirstName]    = useState("")
+  const [lastName,     setLastName]     = useState("")
+  const [phone,        setPhone]        = useState("")
+  const [bio,          setBio]          = useState("")
+  const [qualifications, setQualifications] = useState("")
+  const [expLabel,     setExpLabel]     = useState("")
+  const [hourlyRate,   setHourlyRate]   = useState("")
+  const [languages,    setLanguages]    = useState<string[]>([])
+  const [imageUrl,     setImageUrl]     = useState("")
+  const [fileUrl,      setFileUrl]      = useState("")
+  const [payoutMethod, setPayoutMethod] = useState<"telebirr" | "bank" | "">("")
+  const [payoutPhone,  setPayoutPhone]  = useState("")
+  const [payoutBank,   setPayoutBank]   = useState("")
+  const [payoutAccount,setPayoutAccount]= useState("")
+  const [availDays,    setAvailDays]    = useState<string[]>([])
+  const [availTimes,   setAvailTimes]   = useState<string[]>([])
+  const [maxStudents,  setMaxStudents]  = useState(5)
 
-  function onSubmit(_data: ProfileValues) {
-    // In production: call PATCH /api/v1/profile
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+  const load = useCallback(async () => {
+    if (!accessToken) return
+    try {
+      const res  = await fetch(`${API_BASE}/tutors/my-profile`, { headers: authHeaders(accessToken) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message)
+      const p = data.data
+      setProfile(p)
+      const [fn, ...ln] = (p.user.name ?? "").split(" ")
+      setFirstName(fn ?? "")
+      setLastName(ln.join(" "))
+      setPhone(p.user.phone ?? "")
+      setBio(p.bio ?? "")
+      setQualifications(p.qualifications ?? "")
+      setExpLabel(NUM_TO_EXP[p.experience_years] ?? "Less than 1 year")
+      setHourlyRate(String(p.hourly_rate ?? ""))
+      setLanguages(p.languages ? p.languages.split(",").map((l: string) => l.trim()) : [])
+      setImageUrl(p.image_profile ?? "")
+      setFileUrl(p.file ?? "")
+      setPayoutMethod(p.payout_method ?? "")
+      setPayoutPhone(p.payout_phone ?? "")
+      setPayoutBank(p.payout_bank ?? "")
+      setPayoutAccount(p.payout_account ?? "")
+      setAvailDays(Array.isArray(p.available_days) ? p.available_days : [])
+      setAvailTimes(Array.isArray(p.available_times) ? p.available_times : [])
+      setMaxStudents(p.default_max_students ?? 5)
+    } catch (err: any) {
+      toast.error(err.message || "Could not load profile")
+    } finally {
+      setLoading(false)
+    }
+  }, [accessToken])
+
+  useEffect(() => { load() }, [load])
+
+  const handleSave = async () => {
+    if (!accessToken) return
+    setSaving(true)
+    try {
+      const res = await fetch(`${API_BASE}/tutors/profile`, {
+        method: "PATCH",
+        headers: authHeaders(accessToken),
+        body: JSON.stringify({
+          bio,
+          qualifications,
+          experience_years: EXP_TO_NUM[expLabel] ?? 0,
+          hourly_rate:      Number(hourlyRate),
+          languages:        languages.join(","),
+          image_profile:    imageUrl || undefined,
+          file:             fileUrl  || undefined,
+          payout_method:    payoutMethod || undefined,
+          payout_phone:     payoutPhone  || undefined,
+          payout_bank:      payoutBank   || undefined,
+          payout_account:   payoutAccount || undefined,
+          available_days:   availDays,
+          available_times:  availTimes,
+          default_max_students: maxStudents,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message)
+      toast.success("Profile updated successfully!")
+      load()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save")
+    } finally {
+      setSaving(false)
+    }
   }
 
+  if (loading) return (
+    <div className="px-4 lg:px-6 space-y-6">
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="h-32 rounded-xl" />
+      <Skeleton className="h-64 rounded-xl" />
+      <Skeleton className="h-48 rounded-xl" />
+    </div>
+  )
+
+  const initials = `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase() || "T"
+  const subjects  = profile?.teacherSubjects?.map((ts: any) => ts.subject.name) ?? []
+
   return (
-    <div className="space-y-6 px-4 lg:px-6">
-      {/* Heading */}
+    <div className="px-4 lg:px-6 space-y-6 pb-12">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">My Profile</h1>
-        <p className="text-muted-foreground text-sm">
-          Manage your personal information and learning preferences.
-        </p>
+        <p className="text-muted-foreground text-sm">Manage your teaching profile, availability, and payout settings.</p>
       </div>
 
-      {/* Avatar summary card */}
+      {/* ── Profile summary card ── */}
       <Card>
         <CardContent className="pt-5">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground text-xl font-bold">
-              {initials}
-            </div>
+          <div className="flex items-start gap-4 flex-wrap">
+            <Avatar className="h-16 w-16 shrink-0 border-2 border-border">
+              {imageUrl && <AvatarImage src={imageUrl} alt={`${firstName} ${lastName}`} />}
+              <AvatarFallback className="bg-primary/10 text-primary text-xl font-bold">{initials}</AvatarFallback>
+            </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold">{user?.name}</p>
-              <p className="text-muted-foreground text-sm truncate">{user?.email}</p>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              <Badge variant="outline" className="capitalize">{user?.role?.toLowerCase()}</Badge>
-              {isPro() ? (
-                <Badge className="bg-amber-500 hover:bg-amber-600 text-white border-0">PRO</Badge>
-              ) : (
-                <Badge variant="secondary">Basic</Badge>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-2 gap-4 text-center">
-            <div className="rounded-lg bg-muted/50 py-3">
-              <p className="text-xl font-bold">{profile?.total_spent?.toLocaleString() ?? 0}</p>
-              <p className="text-xs text-muted-foreground">ETB Spent</p>
-            </div>
-            <div className="rounded-lg bg-muted/50 py-3">
-              <p className="text-xl font-bold">
-                {myGrades.find((g) => g.grade_id === profile?.grade_id)?.grade_name ?? "—"}
-              </p>
-              <p className="text-xs text-muted-foreground">Current Grade</p>
-            </div>
-          </div>
-
-          {!isPro() && (
-            <div className="mt-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-4 py-3 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">Upgrade to Pro</p>
-                <p className="text-xs text-muted-foreground">Unlock recordings & unlimited bookings</p>
+              <p className="text-lg font-bold">{firstName} {lastName}</p>
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
+                <Mail className="size-3.5" /> {profile?.user?.email}
               </div>
-              <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white border-0 shrink-0">
-                Upgrade Now
-              </Button>
+              {phone && (
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
+                  <Phone className="size-3.5" /> {phone}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {subjects.slice(0, 5).map((s: string) => (
+                  <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-center shrink-0">
+              <div className="rounded-lg bg-muted/50 px-3 py-2">
+                <p className="text-lg font-bold flex items-center justify-center gap-1">
+                  <Star className="size-4 text-amber-400 fill-amber-400" />
+                  {Number(profile?.average_rating ?? 0).toFixed(1)}
+                </p>
+                <p className="text-[10px] text-muted-foreground">Rating</p>
+              </div>
+              <div className="rounded-lg bg-muted/50 px-3 py-2">
+                <p className="text-lg font-bold">{profile?.experience_years ?? 0}y</p>
+                <p className="text-[10px] text-muted-foreground">Experience</p>
+              </div>
+              <div className="rounded-lg bg-muted/50 px-3 py-2">
+                <p className="text-lg font-bold">{hourlyRate}</p>
+                <p className="text-[10px] text-muted-foreground">ETB/hr</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Profile Photo & Credentials ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Profile Photo & Credentials</CardTitle>
+          <CardDescription>Your photo is shown to students. Credentials are reviewed by admins.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <FileUpload
+            label="Profile Photo"
+            accept="image/*"
+            maxSizeMB={3}
+            value={imageUrl}
+            onChange={setImageUrl}
+            hint="JPG or PNG, max 3MB"
+          />
+          <FileUpload
+            label="Degree / Certificate"
+            accept="image/*,application/pdf"
+            maxSizeMB={5}
+            value={fileUrl}
+            onChange={setFileUrl}
+            hint="PDF or image, max 5MB"
+          />
+        </CardContent>
+      </Card>
+
+      {/* ── Teaching Info ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Teaching Information</CardTitle>
+          <CardDescription>Visible to students on your public profile.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Hourly Rate (ETB)</label>
+              <Input
+                type="number"
+                min={50}
+                value={hourlyRate}
+                onChange={e => setHourlyRate(e.target.value)}
+                placeholder="150"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Experience</label>
+              <Select value={expLabel} onValueChange={setExpLabel}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {EXP_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Qualifications</label>
+            <Input
+              value={qualifications}
+              onChange={e => setQualifications(e.target.value)}
+              placeholder="e.g. BSc Mathematics, Addis Ababa University"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Teaching Bio</label>
+            <Textarea
+              rows={4}
+              value={bio}
+              onChange={e => setBio(e.target.value)}
+              placeholder="Tell students about your teaching style and background…"
+            />
+            <p className="text-xs text-muted-foreground">{bio.length} characters</p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Languages You Teach In</label>
+            <div className="flex flex-wrap gap-2">
+              {LANGUAGES.map(lang => {
+                const sel = languages.includes(lang)
+                return (
+                  <Badge
+                    key={lang}
+                    variant={sel ? "default" : "outline"}
+                    className="cursor-pointer select-none text-xs px-3 py-1"
+                    onClick={() => setLanguages(toggleArr(languages, lang))}
+                  >
+                    {sel && <CheckCircle2 className="size-3 mr-1" />}
+                    {lang}
+                  </Badge>
+                )
+              })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Availability ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Availability</CardTitle>
+          <CardDescription>These days and times are used when you create new sessions.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {/* Available days */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Available Days</label>
+            <div className="flex gap-2 flex-wrap">
+              {DAYS.map(day => {
+                const sel = availDays.includes(day)
+                return (
+                  <div
+                    key={day}
+                    className={cn(
+                      "flex h-9 w-12 items-center justify-center rounded-lg border-2 cursor-pointer text-xs font-semibold transition-all select-none",
+                      sel ? "border-primary bg-primary text-primary-foreground" : "border-border hover:border-primary/50"
+                    )}
+                    onClick={() => setAvailDays(toggleArr(availDays, day))}
+                  >
+                    {day}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Available time slots */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Available Time Slots</label>
+            <div className="grid grid-cols-2 gap-2">
+              {TIME_SLOTS.map(slot => {
+                const sel = availTimes.includes(slot)
+                return (
+                  <div
+                    key={slot}
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer text-xs transition-all select-none",
+                      sel ? "border-primary bg-primary/5 text-primary font-medium" : "border-border hover:border-primary/40"
+                    )}
+                    onClick={() => setAvailTimes(toggleArr(availTimes, slot))}
+                  >
+                    {sel ? <CheckCircle2 className="size-3 shrink-0 text-primary" /> : <div className="h-3 w-3 rounded-full border border-muted-foreground/40 shrink-0" />}
+                    {slot}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Default max students */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Default Max Students Per Session</label>
+            <div className="flex gap-2 flex-wrap">
+              {[1,2,3,4,5].map(n => (
+                <div
+                  key={n}
+                  className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-lg border-2 cursor-pointer text-sm font-bold transition-all select-none",
+                    maxStudents === n ? "border-primary bg-primary text-primary-foreground" : "border-border hover:border-primary/50"
+                  )}
+                  onClick={() => setMaxStudents(n)}
+                >
+                  {n}
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Payout Settings ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Payout Settings</CardTitle>
+          <CardDescription>Where your earnings are sent after each session.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-3">
+            {(["telebirr", "bank"] as const).map(method => (
+              <div
+                key={method}
+                className={cn(
+                  "flex-1 flex items-center gap-2 rounded-lg border-2 px-3 py-2.5 cursor-pointer text-sm transition-all",
+                  payoutMethod === method ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
+                )}
+                onClick={() => setPayoutMethod(method)}
+              >
+                <Wallet className="size-4 text-muted-foreground" />
+                <span className="font-medium capitalize">{method === "telebirr" ? "Telebirr" : "Bank Transfer"}</span>
+              </div>
+            ))}
+          </div>
+
+          {payoutMethod === "telebirr" && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Telebirr Phone Number</label>
+              <Input value={payoutPhone} onChange={e => setPayoutPhone(e.target.value)} placeholder="09XXXXXXXX" />
+            </div>
+          )}
+
+          {payoutMethod === "bank" && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Bank Name</label>
+                <Input value={payoutBank} onChange={e => setPayoutBank(e.target.value)} placeholder="e.g. CBE, Awash" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Account Number</label>
+                <Input value={payoutAccount} onChange={e => setPayoutAccount(e.target.value)} placeholder="Account number" />
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Edit form — same pattern as settings/account */}
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          {/* Personal Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Personal Information</CardTitle>
-              <CardDescription>Update your name, phone, and contact details.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="firstName" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>First Name</FormLabel>
-                    <FormControl><Input {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="lastName" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Last Name</FormLabel>
-                    <FormControl><Input {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              </div>
-              <FormField control={form.control} name="email" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email Address</FormLabel>
-                  <FormControl><Input type="email" disabled className="bg-muted/40" {...field} /></FormControl>
-                  <p className="text-xs text-muted-foreground">Email cannot be changed here.</p>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="phone" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Phone Number</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-            </CardContent>
-          </Card>
-
-          {/* Learning Preferences */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Learning Preferences</CardTitle>
-              <CardDescription>Help us match you with the best tutors.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <FormField control={form.control} name="gradeId" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Grade Level</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select grade" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {myGrades.map((g) => (
-                        <SelectItem key={g.grade_id} value={g.grade_id.toString()}>
-                          {g.grade_name} · {g.level_group}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="learningGoals" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Learning Goals</FormLabel>
-                  <FormControl>
-                    <Textarea rows={3} placeholder="Describe what you want to achieve…" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-            </CardContent>
-          </Card>
-
-          {/* Danger Zone (same as settings/account) */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Danger Zone</CardTitle>
-              <CardDescription>Irreversible and destructive actions.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Separator className="mb-4" />
-              <div className="flex flex-wrap gap-2 items-center justify-between">
-                <div>
-                  <h4 className="font-semibold text-sm">Delete Account</h4>
-                  <p className="text-sm text-muted-foreground">Permanently delete your account and all associated data.</p>
-                </div>
-                <Button variant="destructive" type="button">Delete Account</Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Save */}
-          <div className="flex items-center gap-3">
-            <Button type="submit" className="gap-2" disabled={saved}>
-              {saved ? <CheckCircle2 className="size-4" /> : <Save className="size-4" />}
-              {saved ? "Saved!" : "Save Changes"}
-            </Button>
-            <Button type="reset" variant="outline" onClick={() => form.reset()}>Cancel</Button>
-            {saved && <span className="text-sm text-green-600 dark:text-green-400">Profile updated successfully.</span>}
-          </div>
-        </form>
-      </Form>
+      {/* ── Save button ── */}
+      <div className="flex items-center gap-3 pb-4">
+        <Button className="gap-2 px-8" disabled={saving} onClick={handleSave}>
+          {saving ? <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="size-4" />}
+          {saving ? "Saving…" : "Save Changes"}
+        </Button>
+      </div>
     </div>
   )
 }

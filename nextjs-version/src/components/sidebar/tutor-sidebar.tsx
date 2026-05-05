@@ -33,7 +33,7 @@ const tutorNav = [
       { title: "Dashboard",     url: "/tutor/tutor-dashboard", icon: LayoutDashboard },
       { title: "New Session",   url: "/tutor/new-session",     icon: Plus },
       { title: "My Sessions",   url: "/tutor/sessions",        icon: Calendar },
-      { title: "My Bookings",   url: "/tutor/bookings",        icon: BookOpen },
+      // { title: "My Bookings",   url: "/tutor/bookings",        icon: BookOpen },
       { title: "My Students",   url: "/tutor/students",        icon: Users },
       { title: "Earnings",      url: "/tutor/earnings",        icon: Wallet },
     ],

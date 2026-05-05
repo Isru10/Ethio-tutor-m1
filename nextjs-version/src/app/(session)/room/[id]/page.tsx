@@ -30,7 +30,39 @@ function SessionContent() {
       if (!sessionId) return;
       try {
         setLoading(true);
-        const raw = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+
+        // The URL param may be a numeric session_id OR a room_name string (e.g. "et-session-52-...")
+        // If it looks like a room name (contains non-numeric chars), resolve it to a session_id first
+        const isRoomName = /[^0-9]/.test(sessionId);
+        let resolvedSessionId = sessionId;
+
+        if (isRoomName) {
+          // Fetch all sessions and find the one with this room_name
+          // We use the session endpoint with the room_name as a query param
+          // Since we don't have a dedicated endpoint, fetch the session by room_name via bookings
+          const bookingsRes = await fetch(`${API_BASE}/bookings`, {
+            headers: { Authorization: `Bearer ${useAuthStore.getState().accessToken ?? ""}` }
+          });
+          const bookingsBody = await bookingsRes.json();
+          const bookings: any[] = bookingsBody.data ?? [];
+          const match = bookings.find((b: any) => b.slot?.session?.room_name === sessionId);
+          if (match?.slot?.session?.session_id) {
+            resolvedSessionId = String(match.slot.session.session_id);
+          } else {
+            // Try tutor bookings if student bookings didn't find it
+            const tutorBookingsRes = await fetch(`${API_BASE}/bookings/tutor`, {
+              headers: { Authorization: `Bearer ${useAuthStore.getState().accessToken ?? ""}` }
+            });
+            const tutorBody = await tutorBookingsRes.json();
+            const tutorBookings: any[] = tutorBody.data ?? [];
+            const tutorMatch = tutorBookings.find((b: any) => b.slot?.session?.room_name === sessionId);
+            if (tutorMatch?.slot?.session?.session_id) {
+              resolvedSessionId = String(tutorMatch.slot.session.session_id);
+            }
+          }
+        }
+
+        const raw = await fetch(`${API_BASE}/sessions/${resolvedSessionId}`, {
           headers: { Authorization: `Bearer ${useAuthStore.getState().accessToken ?? ""}` }
         });
         const body = await raw.json();
@@ -86,7 +118,7 @@ function SessionContent() {
           return;
         }
 
-        const data = await joinSessionApi(sessionId, urlToken);
+        const data = await joinSessionApi(resolvedSessionId, urlToken);
         setSessionData({
           token:     data.token,
           serverUrl: data.liveKitUrl,

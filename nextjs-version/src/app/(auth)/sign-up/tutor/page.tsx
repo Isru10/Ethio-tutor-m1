@@ -109,7 +109,7 @@ const TIME_SLOTS = [
 const LANGUAGES = [
   "Amharic",
   "English",
-  "Oromiffa",
+  "Afaan Oromoo",
   "Tigrinya",
   "Somali",
   "Arabic",
@@ -337,6 +337,10 @@ export default function TutorRegisterPage() {
         payout_account: data.payout_account,
         image_profile: profilePhotoUrl || undefined,
         file: credentialFileUrl || undefined,
+        // Availability preferences — stored for smart slot creation
+        available_days:       data.availableDays,
+        available_times:      data.timeSlots,
+        default_max_students: Number(data.maxStudents),
       });
 
       setAuth(res.user, res.accessToken, res.refreshToken);

@@ -73,4 +73,17 @@ export const slotService = {
     if (!res.ok) throw new Error(result.message);
     return result.data;
   },
+
+  async getMyAvailability(): Promise<{
+    available_days: string[];
+    available_times: string[];
+    default_max_students: number;
+    hourly_rate: number;
+    existing_slots: { slot_date: string; start_time: string; end_time: string }[];
+  }> {
+    const res = await fetch(`${API_URL}/tutors/my-availability`, { headers: getAuthHeaders() });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.message);
+    return result.data;
+  },
 };
