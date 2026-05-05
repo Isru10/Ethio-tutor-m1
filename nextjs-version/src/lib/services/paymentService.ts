@@ -4,8 +4,16 @@ import { API_BASE } from "../api";
 const API = API_BASE;
 
 function authHeaders() {
-  const token = useAuthStore.getState().accessToken;
-  return { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" };
+  // Primary: Zustand store (in-memory after hydration)
+  let token = useAuthStore.getState().accessToken;
+
+  // Fallback: read directly from cookie (handles SSR/hydration timing)
+  if (!token && typeof document !== "undefined") {
+    const match = document.cookie.match(/(?:^|;\s*)ethiotutor_token=([^;]+)/)
+    if (match) token = decodeURIComponent(match[1])
+  }
+
+  return { "Authorization": `Bearer ${token ?? ""}`, "Content-Type": "application/json" };
 }
 
 export const paymentService = {

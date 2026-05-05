@@ -99,6 +99,7 @@ model Tenant {
   reviews          Review[]
   notifications    Notification[]
   customRoles      CustomRole[]
+  conversations    Conversation[]
 }
 
 // ─── 1b. CUSTOM ROLES ────────────────────────────────────────
@@ -133,6 +134,8 @@ model User {
   teacherProfile TeacherProfile?
   studentProfile StudentProfile?
   notifications  Notification[]
+  conversationParticipants ConversationParticipant[]
+  sentMessages   ChatMessage[]
 }
 
 // ─── 3. TEACHER_PROFILES ─────────────────────────────────────
@@ -351,4 +354,44 @@ model Notification {
 
   tenant    Tenant @relation(fields: [tenant_id], references: [tenant_id])
   recipient User   @relation(fields: [recipient_id], references: [user_id])
+}
+
+// ─── 15. CONVERSATIONS ───────────────────────────────────────
+model Conversation {
+  conversation_id Int      @id @default(autoincrement())
+  tenant_id       Int
+  type            String   @default("direct") @db.VarChar(20) // "direct" | "group"
+  name            String?  @db.VarChar(255)
+  created_at      DateTime @default(now())
+
+  tenant       Tenant                    @relation(fields: [tenant_id], references: [tenant_id])
+  participants ConversationParticipant[]
+  messages     ChatMessage[]
+}
+
+// ─── 16. CONVERSATION_PARTICIPANTS ───────────────────────────
+model ConversationParticipant {
+  id              Int      @id @default(autoincrement())
+  conversation_id Int
+  user_id         Int
+  joined_at       DateTime @default(now())
+  last_read_at    DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversation_id], references: [conversation_id])
+  user         User         @relation(fields: [user_id], references: [user_id])
+
+  @@unique([conversation_id, user_id])
+}
+
+// ─── 17. CHAT_MESSAGES ───────────────────────────────────────
+model ChatMessage {
+  message_id      Int      @id @default(autoincrement())
+  conversation_id Int
+  sender_id       Int
+  content         String   @db.Text
+  type            String   @default("text") @db.VarChar(20) // "text" | "image" | "file"
+  created_at      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversation_id], references: [conversation_id])
+  sender       User         @relation(fields: [sender_id], references: [user_id])
 }

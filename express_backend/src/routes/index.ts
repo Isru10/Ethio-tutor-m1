@@ -11,6 +11,7 @@ import notificationRoute from "../features/notifications/notification.route";
 import academicRoute     from "../features/academic/academic.route";
 import sessionRoute      from "../features/sessions/session.route";
 import roleRoute         from "../features/roles/role.route";
+import chatRoute         from "../features/chat/chat.route";
 
 const router = Router();
 
@@ -25,5 +26,6 @@ router.use("/notifications", notificationRoute);
 router.use("/academic",      academicRoute);
 router.use("/sessions",      sessionRoute);
 router.use("/roles",         roleRoute);
+router.use("/chat",          chatRoute);
 
 export default router;

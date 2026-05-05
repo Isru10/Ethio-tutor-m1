@@ -216,16 +216,19 @@ export async function getStudentRecordings(
 }
 
 /**
- * Get notifications for a user.
+ * Get notifications for a user — calls the real backend API.
  */
 export async function getUserNotifications(
   userId: number,
   tenantId: number
 ): Promise<Notification[]> {
-  await delay();
-  return notifications.filter(
-    (n) => n.recipient_id === userId && n.tenant_id === tenantId
-  );
+  const { accessToken } = useAuthStore.getState();
+  const res = await fetch(`${API_BASE}/notifications`, {
+    headers: { "Authorization": `Bearer ${accessToken}` },
+  });
+  if (!res.ok) return [];
+  const result = await res.json();
+  return result.data ?? [];
 }
 
 export async function getTutorsWithProfiles(tenantId: number): Promise<TutorWithProfile[]> {

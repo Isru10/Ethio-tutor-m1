@@ -6,6 +6,7 @@ export interface JwtPayload {
   tenantId: number;
   role:     string;
   tier:     string;
+  status:   string;  // "active" | "suspended" | "pending_verification"
 }
 
 export const signAccessToken  = (payload: JwtPayload) =>

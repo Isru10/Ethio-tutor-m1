@@ -8,6 +8,9 @@ interface AppState {
   setNotifications: (n: Notification[]) => void;
   markAllRead: () => void;
   markOneRead: (id: number) => void;
+  // Unread chat messages count (separate from system notifications)
+  unreadChatCount: number;
+  setUnreadChatCount: (n: number) => void;
 
   // Global loading state for async mock fetches
   globalLoading: boolean;
@@ -41,6 +44,9 @@ export const useAppStore = create<AppState>()((set) => ({
         unreadCount: updated.filter((n) => !n.is_read).length,
       };
     }),
+
+  unreadChatCount: 0,
+  setUnreadChatCount: (n) => set({ unreadChatCount: n }),
 
   globalLoading: false,
   setGlobalLoading: (v) => set({ globalLoading: v }),
