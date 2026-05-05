@@ -215,33 +215,49 @@ export default function BookingsPage() {
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-2 items-center">
-                              {/* JOIN BUTTON — only when session is live */}
-                              {sessionId && isLive && (
-                                <Button
-                                  size="sm"
-                                  className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white gap-1.5"
-                                  disabled={isJoining}
-                                  onClick={() => handleJoin(sessionId)}
-                                >
-                                  {isJoining ? <Loader2 className="size-3 animate-spin" /> : <Video className="size-3" />}
-                                  {isJoining ? "Joining…" : "Join Session"}
-                                </Button>
-                              )}
-                              {/* WAITING STATE — confirmed but session not started */}
-                              {b.status === "confirmed" && !sessionId && (
-                                <span className="text-xs text-muted-foreground">Waiting for tutor…</span>
-                              )}
-                              {/* CANCEL — only for pending/confirmed */}
-                              {(b.status === "pending" || b.status === "confirmed") && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 text-xs text-rose-600 border-rose-300"
-                                  onClick={() => handleCancel(b.booking_id)}
-                                >
-                                  Cancel
-                                </Button>
-                              )}
+                              {/* JOIN BUTTON — only when session is live AND slot date is today or future */}
+                              {(() => {
+                                const slotDate = new Date(b.slot.slot_date);
+                                slotDate.setHours(0, 0, 0, 0);
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                const slotExpired = slotDate < today;
+
+                                if (slotExpired && (b.status === "confirmed" || b.status === "pending")) {
+                                  return (
+                                    <span className="text-xs text-rose-500 font-medium">Session expired</span>
+                                  );
+                                }
+
+                                return (
+                                  <>
+                                    {sessionId && isLive && !slotExpired && (
+                                      <Button
+                                        size="sm"
+                                        className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white gap-1.5"
+                                        disabled={isJoining}
+                                        onClick={() => handleJoin(sessionId)}
+                                      >
+                                        {isJoining ? <Loader2 className="size-3 animate-spin" /> : <Video className="size-3" />}
+                                        {isJoining ? "Joining…" : "Join Session"}
+                                      </Button>
+                                    )}
+                                    {b.status === "confirmed" && !sessionId && !slotExpired && (
+                                      <span className="text-xs text-muted-foreground">Waiting for tutor…</span>
+                                    )}
+                                    {(b.status === "pending" || b.status === "confirmed") && !slotExpired && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 text-xs text-rose-600 border-rose-300"
+                                        onClick={() => handleCancel(b.booking_id)}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </div>
                           </TableCell>
                         </TableRow>

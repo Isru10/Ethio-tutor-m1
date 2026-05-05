@@ -1,13 +1,14 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { AdminSidebar } from "@/components/sidebar/admin-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
-import { ThemeCustomizer, ThemeCustomizerTrigger } from "@/components/theme-customizer";
-import { UpgradeToProButton } from "@/components/upgrade-to-pro-button";
 import { useSidebarConfig } from "@/hooks/use-sidebar-config";
+import { useAuthStore } from "@/lib/store/useAuthStore";
+import { useRefreshUser } from "@/hooks/useRefreshUser";
 
 export default function DashboardLayout({
   children,
@@ -16,6 +17,24 @@ export default function DashboardLayout({
 }) {
   const [themeCustomizerOpen, setThemeCustomizerOpen] = React.useState(false);
   const { config } = useSidebarConfig();
+  const { user } = useAuthStore();
+  const router = useRouter();
+
+  // Sync user state from backend — handles role/status changes
+  useRefreshUser();
+
+  // Client-side role guard — second layer after middleware
+  useEffect(() => {
+    if (!user) return;
+    const isAdmin = ["ADMIN", "SUPER_ADMIN", "MODERATOR"].includes(user.role);
+    if (!isAdmin) {
+      // Students and tutors have no business here
+      const home = user.role === "TUTOR"
+        ? (user.status === "active" ? "/tutor/tutor-dashboard" : "/onboarding")
+        : "/dashboard";
+      router.replace(home);
+    }
+  }, [user, router]);
 
   return (
     <SidebarProvider

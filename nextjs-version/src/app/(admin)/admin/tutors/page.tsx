@@ -8,13 +8,15 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog"
 import {
   CheckCircle2, XCircle, AlertCircle, Lock, RefreshCw,
-  User, BookOpen, Star, Clock, Loader2,
+  User, Clock, Loader2, FileText, ExternalLink, Phone,
+  GraduationCap, Languages, BookOpen, DollarSign, CreditCard,
+  Star, AlertTriangle,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -29,10 +31,20 @@ interface PendingTutor {
   experience_years: number
   hourly_rate: string
   languages: string
+  image_profile: string | null
+  teacher_image: string | null
+  file: string | null                // credential document URL
   verification_status: string
   verification_note: string | null
+  resubmit_count: number
   locked_by: number | null
   locked_at: string | null
+  grade_from: number
+  grade_to: number
+  payout_method: string | null
+  payout_phone: string | null
+  payout_bank: string | null
+  payout_account: string | null
   user: { user_id: number; name: string; email: string; phone: string | null; created_at: string }
   teacherSubjects: { subject: { name: string } }[]
 }
@@ -42,6 +54,16 @@ const STATUS_STYLES: Record<string, string> = {
   pending_info: "bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400",
   approved:     "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400",
   rejected:     "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400",
+}
+
+// Small helper to render a labelled info cell
+function InfoCell({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border p-3 space-y-1">
+      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+      <div className="text-sm font-medium">{value || <span className="text-muted-foreground italic">Not provided</span>}</div>
+    </div>
+  )
 }
 
 export default function AdminTutorsPage() {
@@ -61,7 +83,6 @@ export default function AdminTutorsPage() {
     setLoading(false)
   }, [])
 
-  // Poll every 15 seconds for real-time queue updates
   useEffect(() => {
     if (!user) return
     load()
@@ -169,6 +190,7 @@ export default function AdminTutorsPage() {
               const lockedOther = isLockedByOther(t)
               const lockedMe    = isLockedByMe(t)
               const subjects    = t.teacherSubjects.map(ts => ts.subject.name)
+              const photo       = t.image_profile || t.teacher_image
 
               return (
                 <Card key={t.teacher_profile_id} className={lockedOther ? "opacity-60" : ""}>
@@ -176,6 +198,7 @@ export default function AdminTutorsPage() {
                     <div className="flex items-center justify-between gap-4 flex-wrap">
                       <div className="flex items-center gap-3 min-w-0">
                         <Avatar className="h-10 w-10 shrink-0">
+                          {photo && <AvatarImage src={photo} alt={t.user.name} />}
                           <AvatarFallback className="bg-primary/10 text-primary text-sm font-bold">
                             {t.user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
                           </AvatarFallback>
@@ -186,9 +209,9 @@ export default function AdminTutorsPage() {
                             <Badge variant="secondary" className={`text-[10px] ${STATUS_STYLES[t.verification_status] ?? ""}`}>
                               {t.verification_status.replace("_", " ")}
                             </Badge>
-                            {(t as any).resubmit_count > 0 && (
+                            {t.resubmit_count > 0 && (
                               <Badge variant="outline" className="text-[10px] gap-1 border-violet-300 text-violet-700 dark:text-violet-400">
-                                🔄 Resubmission #{(t as any).resubmit_count}
+                                🔄 Resubmission #{t.resubmit_count}
                               </Badge>
                             )}
                             {lockedOther && (
@@ -235,53 +258,177 @@ export default function AdminTutorsPage() {
         )}
       </div>
 
-      {/* Review Panel Dialog */}
+      {/* ── Full Review Panel Dialog ── */}
       <Dialog open={!!selected} onOpenChange={v => { if (!v) handleRelease() }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
           {selected && (
             <>
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <User className="size-5" /> {selected.user.name}
-                </DialogTitle>
-                <DialogDescription>{selected.user.email} · {selected.user.phone ?? "No phone"}</DialogDescription>
+                <div className="flex items-center gap-4">
+                  {/* Profile photo */}
+                  <Avatar className="h-16 w-16 shrink-0 border-2 border-border">
+                    {(selected.image_profile || selected.teacher_image) && (
+                      <AvatarImage src={selected.image_profile || selected.teacher_image || ""} alt={selected.user.name} />
+                    )}
+                    <AvatarFallback className="bg-primary/10 text-primary text-xl font-bold">
+                      {selected.user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <DialogTitle className="text-xl">{selected.user.name}</DialogTitle>
+                    <DialogDescription className="flex flex-wrap items-center gap-3 mt-1">
+                      <span className="flex items-center gap-1"><User className="size-3" />{selected.user.email}</span>
+                      {selected.user.phone && <span className="flex items-center gap-1"><Phone className="size-3" />{selected.user.phone}</span>}
+                      <span className="text-muted-foreground">Applied {new Date(selected.user.created_at).toLocaleDateString()}</span>
+                    </DialogDescription>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge variant="secondary" className={`text-xs ${STATUS_STYLES[selected.verification_status] ?? ""}`}>
+                        {selected.verification_status.replace("_", " ")}
+                      </Badge>
+                      {selected.resubmit_count > 0 && (
+                        <Badge variant="outline" className="text-xs gap-1 border-violet-300 text-violet-700">
+                          🔄 Resubmission #{selected.resubmit_count}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </DialogHeader>
 
-              <div className="space-y-4 py-2">
-                {/* Profile details */}
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="rounded-lg border p-3 space-y-1">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Experience</p>
-                    <p className="font-medium">{selected.experience_years} years</p>
+              <div className="space-y-5 py-2">
+
+                {/* Previous reviewer note — shown if resubmission */}
+                {selected.verification_note && (
+                  <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-3 flex gap-2">
+                    <AlertTriangle className="size-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-0.5">Previous Reviewer Note</p>
+                      <p className="text-sm text-amber-800 dark:text-amber-300">{selected.verification_note}</p>
+                    </div>
                   </div>
-                  <div className="rounded-lg border p-3 space-y-1">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hourly Rate</p>
-                    <p className="font-medium">{Number(selected.hourly_rate).toLocaleString()} ETB</p>
-                  </div>
-                  <div className="rounded-lg border p-3 space-y-1">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Languages</p>
-                    <p className="font-medium">{selected.languages}</p>
-                  </div>
-                  <div className="rounded-lg border p-3 space-y-1">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Subjects</p>
-                    <p className="font-medium">{selected.teacherSubjects.map(ts => ts.subject.name).join(", ") || "—"}</p>
+                )}
+
+                {/* ── Section: Personal & Contact ── */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <User className="size-3.5" /> Personal & Contact
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <InfoCell label="Full Name" value={selected.user.name} />
+                    <InfoCell label="Email" value={selected.user.email} />
+                    <InfoCell label="Phone" value={selected.user.phone} />
+                    <InfoCell label="Languages" value={selected.languages} />
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-3 space-y-1">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Qualifications</p>
-                  <p className="text-sm">{selected.qualifications || "Not provided"}</p>
+                {/* ── Section: Teaching Profile ── */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <GraduationCap className="size-3.5" /> Teaching Profile
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <InfoCell label="Experience" value={`${selected.experience_years} year${selected.experience_years !== 1 ? "s" : ""}`} />
+                    <InfoCell label="Hourly Rate" value={`${Number(selected.hourly_rate).toLocaleString()} ETB`} />
+                    <InfoCell label="Grade Range" value={`Grade ${selected.grade_from} – Grade ${selected.grade_to}`} />
+                    <InfoCell label="Subjects" value={selected.teacherSubjects.map(ts => ts.subject.name).join(", ") || null} />
+                  </div>
+                  <div className="mt-3 rounded-lg border p-3 space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Qualifications</p>
+                    <p className="text-sm">{selected.qualifications || <span className="text-muted-foreground italic">Not provided</span>}</p>
+                  </div>
+                  <div className="mt-3 rounded-lg border p-3 space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Bio</p>
+                    <p className="text-sm leading-relaxed">{selected.bio || <span className="text-muted-foreground italic">Not provided</span>}</p>
+                  </div>
                 </div>
 
-                <div className="rounded-lg border p-3 space-y-1">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Bio</p>
-                  <p className="text-sm leading-relaxed">{selected.bio || "Not provided"}</p>
+                {/* ── Section: Uploaded Documents ── */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <FileText className="size-3.5" /> Uploaded Documents
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Profile photo */}
+                    <div className="rounded-lg border p-3 space-y-2">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Profile Photo</p>
+                      {selected.image_profile || selected.teacher_image ? (
+                        <div className="space-y-2">
+                          <img
+                            src={selected.image_profile || selected.teacher_image || ""}
+                            alt="Profile"
+                            className="w-full h-32 object-cover rounded-md border"
+                          />
+                          <a
+                            href={selected.image_profile || selected.teacher_image || ""}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-xs text-primary hover:underline"
+                          >
+                            <ExternalLink className="size-3" /> Open full size
+                          </a>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground italic">No photo uploaded</p>
+                      )}
+                    </div>
+
+                    {/* Credential document */}
+                    <div className="rounded-lg border p-3 space-y-2">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Credential / Certificate</p>
+                      {selected.file ? (
+                        <div className="space-y-2">
+                          {/* If it's an image, show preview; if PDF show icon */}
+                          {/\.(jpg|jpeg|png|gif|webp)/i.test(selected.file) ? (
+                            <img
+                              src={selected.file}
+                              alt="Credential"
+                              className="w-full h-32 object-cover rounded-md border"
+                            />
+                          ) : (
+                            <div className="flex items-center gap-2 h-32 justify-center bg-muted/30 rounded-md border">
+                              <FileText className="size-8 text-muted-foreground" />
+                              <span className="text-sm text-muted-foreground">PDF Document</span>
+                            </div>
+                          )}
+                          <a
+                            href={selected.file}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-xs text-primary hover:underline"
+                          >
+                            <ExternalLink className="size-3" /> Open / Download
+                          </a>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground italic">No credential uploaded</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Note field */}
+                {/* ── Section: Payout Info ── */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <CreditCard className="size-3.5" /> Payout Information
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <InfoCell label="Payout Method" value={selected.payout_method ? selected.payout_method.charAt(0).toUpperCase() + selected.payout_method.slice(1) : null} />
+                    {selected.payout_method === "telebirr" && (
+                      <InfoCell label="Telebirr Number" value={selected.payout_phone} />
+                    )}
+                    {selected.payout_method === "bank" && (
+                      <>
+                        <InfoCell label="Bank Name" value={selected.payout_bank} />
+                        <InfoCell label="Account Number" value={selected.payout_account} />
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Reviewer Note ── */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">
-                    Reviewer Note <span className="text-muted-foreground font-normal">(required for Reject / Request Info)</span>
+                    Your Decision Note <span className="text-muted-foreground font-normal text-xs">(required for Reject / Request Info)</span>
                   </label>
                   <Textarea
                     placeholder="Explain your decision or what information is missing…"
@@ -293,13 +440,13 @@ export default function AdminTutorsPage() {
                 </div>
               </div>
 
-              <DialogFooter className="flex-col sm:flex-row gap-2">
+              <DialogFooter className="flex-col sm:flex-row gap-2 pt-2 border-t">
                 <Button variant="outline" onClick={handleRelease} className="sm:mr-auto">
                   Cancel
                 </Button>
                 <Button
                   variant="outline"
-                  className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+                  className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/20"
                   disabled={deciding}
                   onClick={() => handleDecide("pending_info")}
                 >
@@ -307,7 +454,7 @@ export default function AdminTutorsPage() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="gap-2 border-red-300 text-red-700 hover:bg-red-50"
+                  className="gap-2 border-red-300 text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
                   disabled={deciding}
                   onClick={() => handleDecide("rejected")}
                 >
@@ -329,3 +476,4 @@ export default function AdminTutorsPage() {
     </>
   )
 }
+

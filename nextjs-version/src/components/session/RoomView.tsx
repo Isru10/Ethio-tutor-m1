@@ -142,7 +142,10 @@ export default function RoomView({
       className="flex flex-col h-screen w-screen bg-gray-950 overflow-hidden"
       onDisconnected={() => {
         if (!autoEnded.current) {
-          window.location.href = isTutor ? "/tutor/tutor-dashboard" : "/dashboard";
+          // Tutor goes to their dashboard; student goes to the review/rejoin page
+          window.location.href = isTutor
+            ? "/tutor/tutor-dashboard"
+            : `/review/${sessionId}`;
         }
       }}
     >

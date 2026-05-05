@@ -350,70 +350,91 @@ export default function TutorBookingsPage() {
                               </Badge>
                             </TableCell>
                             <TableCell onClick={(e) => e.stopPropagation()}>
-                              {g.overallStatus === "confirmed" &&
-                                g.startableBookingId && (
-                                  <Button
-                                    size="sm"
-                                    className="h-7 text-xs gap-1.5 bg-green-600 hover:bg-green-700 text-white"
-                                    disabled={isStarting}
-                                    onClick={() =>
-                                      handleStartSession(
-                                        g.startableBookingId!,
-                                        g.slot_id,
-                                      )
-                                    }
-                                  >
-                                    {isStarting ? (
-                                      <Loader2 className="size-3 animate-spin" />
-                                    ) : (
-                                      <Video className="size-3" />
+                              {(() => {
+                                // Check if slot date has passed — if so, never show Start/Rejoin
+                                const slotDateOnly = new Date(dateOnly);
+                                slotDateOnly.setHours(0, 0, 0, 0);
+                                const todayDate = new Date();
+                                todayDate.setHours(0, 0, 0, 0);
+                                const slotExpired = slotDateOnly < todayDate;
+
+                                if (slotExpired && g.overallStatus === "live") {
+                                  // Ghost session — slot date passed, session never ended
+                                  return (
+                                    <span className="text-xs text-rose-500 font-medium">Auto-ended</span>
+                                  );
+                                }
+
+                                return (
+                                  <>
+                                    {g.overallStatus === "confirmed" &&
+                                      g.startableBookingId &&
+                                      !slotExpired && (
+                                        <Button
+                                          size="sm"
+                                          className="h-7 text-xs gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+                                          disabled={isStarting}
+                                          onClick={() =>
+                                            handleStartSession(
+                                              g.startableBookingId!,
+                                              g.slot_id,
+                                            )
+                                          }
+                                        >
+                                          {isStarting ? (
+                                            <Loader2 className="size-3 animate-spin" />
+                                          ) : (
+                                            <Video className="size-3" />
+                                          )}
+                                          {isStarting ? "Launching…" : "Start"}
+                                        </Button>
+                                      )}
+                                    {g.overallStatus === "live" && !slotExpired && (
+                                      <Button
+                                        size="sm"
+                                        className="h-7 text-xs gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
+                                        onClick={() =>
+                                          router.push(
+                                            `/room/${g.session?.session_id}`,
+                                          )
+                                        }
+                                      >
+                                        <Video className="size-3" /> Rejoin
+                                      </Button>
                                     )}
-                                    {isStarting ? "Launching…" : "Start"}
-                                  </Button>
-                                )}
-                              {g.overallStatus === "live" && (
-                                <Button
-                                  size="sm"
-                                  className="h-7 text-xs gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
-                                  onClick={() =>
-                                    router.push(
-                                      `/room/${g.session?.session_id}`,
-                                    )
-                                  }
-                                >
-                                  <Video className="size-3" /> Rejoin
-                                </Button>
-                              )}
-                              {(g.overallStatus === "pending" ||
-                                g.overallStatus === "completed") && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 text-xs gap-1 text-muted-foreground"
-                                  onClick={() =>
-                                    router.push(`/tutor/bookings/${g.slot_id}`)
-                                  }
-                                >
-                                  View <ChevronRight className="size-3" />
-                                </Button>
-                              )}
-                              {g.overallStatus !== "completed" && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 text-xs gap-1 text-muted-foreground ml-1"
-                                  onClick={() => setEditTarget({
-                                    slot_id:     g.slot_id,
-                                    slot_date:   g.slot_date,
-                                    start_time:  g.start_time,
-                                    end_time:    g.end_time,
-                                    description: null,
-                                    subject:     { name: g.subject },
-                                  })}
-                                >
-                                  <Pencil className="size-3" />
-                                </Button>
-                              )}
+                                    {(g.overallStatus === "pending" ||
+                                      g.overallStatus === "completed") && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 text-xs gap-1 text-muted-foreground"
+                                        onClick={() =>
+                                          router.push(`/tutor/bookings/${g.slot_id}`)
+                                        }
+                                      >
+                                        View <ChevronRight className="size-3" />
+                                      </Button>
+                                    )}
+                                    {g.overallStatus !== "completed" && !slotExpired && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 text-xs gap-1 text-muted-foreground ml-1"
+                                        onClick={() => setEditTarget({
+                                          slot_id:     g.slot_id,
+                                          slot_date:   g.slot_date,
+                                          start_time:  g.start_time,
+                                          end_time:    g.end_time,
+                                          description: null,
+                                          subject:     { name: g.subject },
+                                        })}
+                                      >
+                                        <Pencil className="size-3" />
+                                      </Button>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </TableCell>
                           </TableRow>
                         );

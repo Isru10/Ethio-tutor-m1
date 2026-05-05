@@ -32,6 +32,8 @@ interface ConversationListProps {
   conversations: Conversation[]
   selectedConversation: string | null
   onSelectConversation: (conversationId: string) => void
+  onNewChat?: () => void
+  onBroadcast?: () => void
 }
 
 // Enhanced time formatting function
@@ -54,7 +56,9 @@ function formatMessageTime(timestamp: string): string {
 export function ConversationList({
   conversations,
   selectedConversation,
-  onSelectConversation
+  onSelectConversation,
+  onNewChat,
+  onBroadcast,
 }: ConversationListProps) {
   const { searchQuery, setSearchQuery } = useChat()
 
@@ -95,13 +99,19 @@ export function ConversationList({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem className="cursor-pointer">
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => onNewChat?.()}
+            >
               <UserPlus className="h-4 w-4 mr-2" />
               New Chat
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer">
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => onBroadcast?.()}
+            >
               <Filter className="h-4 w-4 mr-2" />
-              Filter Messages
+              Broadcast Message
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="cursor-pointer">

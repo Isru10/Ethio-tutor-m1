@@ -7,8 +7,9 @@ import { API_BASE } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Loader2, Star, CheckCircle2, AlertTriangle } from "lucide-react"
+import { Loader2, Star, CheckCircle2, AlertTriangle, Video } from "lucide-react"
 import { toast } from "sonner"
+import { joinSessionApi } from "@/lib/services/sessionService"
 
 function authHeaders() {
   return { Authorization: `Bearer ${useAuthStore.getState().accessToken}`, "Content-Type": "application/json" }
@@ -21,13 +22,14 @@ export default function ReviewPage() {
   const router = useRouter()
   const { user } = useAuthStore()
 
-  const [step, setStep] = useState<Step>("rating")
+  const [step, setStep]               = useState<Step>("rating")
   const [sessionInfo, setSessionInfo] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
+  const [loading, setLoading]         = useState(true)
+  const [submitting, setSubmitting]   = useState(false)
+  const [rejoining, setRejoining]     = useState(false)
 
   // Rating state
-  const [rating, setRating] = useState(0)
+  const [rating, setRating]   = useState(0)
   const [hovered, setHovered] = useState(0)
   const [comment, setComment] = useState("")
 
@@ -44,10 +46,23 @@ export default function ReviewPage() {
       .finally(() => setLoading(false))
   }, [sessionId, user])
 
+  const isSessionLive = sessionInfo?.status === "live"
+
   // Find this student's completed booking for this session
   const myBooking = sessionInfo?.slot?.bookings?.find(
     (b: any) => b.student?.user?.user_id === user?.user_id
   )
+
+  const handleRejoin = async () => {
+    setRejoining(true)
+    try {
+      const data = await joinSessionApi(sessionId)
+      router.push(`/room/${data.sessionId}`)
+    } catch (err: any) {
+      toast.error(err.message || "Could not rejoin session")
+      setRejoining(false)
+    }
+  }
 
   const handleSubmitRating = async () => {
     if (rating === 0) { toast.error("Please select a rating"); return }
@@ -69,7 +84,6 @@ export default function ReviewPage() {
       if (!res.ok) throw new Error(data.message ?? "Failed to submit review")
       setStep("report")
     } catch (err: any) {
-      // If already reviewed, skip to report
       if (err.message?.includes("already reviewed")) {
         setStep("report")
       } else {
@@ -82,15 +96,13 @@ export default function ReviewPage() {
 
   const handleSubmitReport = async () => {
     if (!skipReport && reportText.trim().length > 0) {
-      // In a real system this would POST to a /reports endpoint
-      // For now we just log it — add a reports table later
       toast.success("Report submitted. Our team will review it.")
     }
     setStep("done")
   }
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center bg-muted/30">
       <Loader2 className="size-8 animate-spin text-muted-foreground" />
     </div>
   )
@@ -106,7 +118,11 @@ export default function ReviewPage() {
         <div className="flex items-center justify-center gap-2 mb-2">
           {(["rating", "report", "done"] as Step[]).map((s, i) => (
             <div key={s} className="flex items-center gap-2">
-              <div className={`h-2 w-2 rounded-full transition-all ${step === s ? "bg-primary scale-125" : i < ["rating","report","done"].indexOf(step) ? "bg-primary/40" : "bg-muted-foreground/20"}`} />
+              <div className={`h-2 w-2 rounded-full transition-all ${
+                step === s ? "bg-primary scale-125"
+                : i < (["rating","report","done"] as Step[]).indexOf(step) ? "bg-primary/40"
+                : "bg-muted-foreground/20"
+              }`} />
             </div>
           ))}
         </div>
@@ -119,6 +135,27 @@ export default function ReviewPage() {
               <CardDescription>Rate {tutorName}&apos;s teaching for {subject}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+
+              {/* Rejoin button — only shown if session is still live */}
+              {isSessionLive && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 p-4 flex flex-col items-center gap-3 text-center">
+                  <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                    The session is still live. Did you leave by accident?
+                  </p>
+                  <Button
+                    className="gap-2 bg-blue-600 hover:bg-blue-700 text-white w-full"
+                    disabled={rejoining}
+                    onClick={handleRejoin}
+                  >
+                    {rejoining
+                      ? <Loader2 className="size-4 animate-spin" />
+                      : <Video className="size-4" />
+                    }
+                    {rejoining ? "Rejoining…" : "Rejoin Session"}
+                  </Button>
+                </div>
+              )}
+
               {/* Star rating */}
               <div className="flex justify-center gap-2">
                 {[1, 2, 3, 4, 5].map(n => (
@@ -130,7 +167,11 @@ export default function ReviewPage() {
                     className="transition-transform hover:scale-110"
                   >
                     <Star
-                      className={`size-10 transition-colors ${n <= (hovered || rating) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`}
+                      className={`size-10 transition-colors ${
+                        n <= (hovered || rating)
+                          ? "fill-amber-400 text-amber-400"
+                          : "text-muted-foreground/30"
+                      }`}
                     />
                   </button>
                 ))}
@@ -151,8 +192,12 @@ export default function ReviewPage() {
                 <Button variant="outline" className="flex-1" onClick={() => setStep("report")}>
                   Skip
                 </Button>
-                <Button className="flex-1" disabled={submitting || rating === 0} onClick={handleSubmitRating}>
-                  {submitting ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+                <Button
+                  className="flex-1"
+                  disabled={submitting || rating === 0}
+                  onClick={handleSubmitRating}
+                >
+                  {submitting && <Loader2 className="size-4 animate-spin mr-2" />}
                   Submit Rating
                 </Button>
               </div>
@@ -179,7 +224,11 @@ export default function ReviewPage() {
                 className="resize-none"
               />
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => { setSkipReport(true); handleSubmitReport() }}>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => { setSkipReport(true); handleSubmitReport() }}
+                >
                   No issues
                 </Button>
                 <Button className="flex-1" onClick={handleSubmitReport}>
