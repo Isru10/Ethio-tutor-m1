@@ -20,7 +20,158 @@ import {
   generateToken,
 } from "../../utils/livekit.util";
 import { env } from "../../config/env.config";
+import { logger } from "../../utils/logger";
 import type { StartSessionResponse, JoinSessionResponse } from "./session.model";
+
+/**
+ * STALE SESSION CLEANUP
+ *
+ * Finds all sessions that are still "live" but whose slot date has passed.
+ * This handles the case where a tutor closed their browser without ending
+ * the session, or the server restarted mid-session.
+ *
+ * Called on server startup and lazily on every session read/join/start.
+ */
+export async function cleanupStaleSessions(): Promise<void> {
+  try {
+    // Find sessions that are still "live" but the slot date is in the past
+    // We use end_of_day of slot_date as the cutoff — a session on April 16
+    // is stale if it's now April 17 or later.
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // start of today
+
+    const staleSessions = await prisma.session.findMany({
+      where: {
+        status: "live",
+        slot: {
+          slot_date: { lt: today }, // slot date is before today
+        },
+      },
+      include: {
+        slot: true,
+      },
+    });
+
+    if (staleSessions.length === 0) return;
+
+    logger.info(`[cleanup] Found ${staleSessions.length} stale session(s) — auto-closing.`);
+
+    for (const session of staleSessions) {
+      try {
+        // 1. Mark session completed
+        await prisma.session.update({
+          where: { session_id: session.session_id },
+          data:  { status: "completed", end_time: new Date() },
+        });
+
+        // 2. Complete all confirmed bookings on this slot
+        await prisma.booking.updateMany({
+          where: { slot_id: session.slot_id, status: "confirmed" },
+          data:  { status: "completed" },
+        });
+
+        // 3. Mark the slot as completed
+        await prisma.timeSlot.update({
+          where: { slot_id: session.slot_id },
+          data:  { status: "completed" },
+        });
+
+        // 4. Mark paid transactions as eligible for payout
+        await prisma.transaction.updateMany({
+          where: {
+            booking: { slot_id: session.slot_id },
+            payment_status: "paid",
+            payout_status:  "pending",
+          },
+          data: {
+            payout_status: "eligible",
+            eligible_at:   new Date(),
+          },
+        });
+
+        // 5. Try to destroy the LiveKit room (may already be gone — ignore errors)
+        if (session.room_name) {
+          try { await deleteRoom(session.room_name); } catch { /* room already gone */ }
+        }
+
+        logger.info(`[cleanup] Session ${session.session_id} (slot ${session.slot_id}) auto-closed.`);
+      } catch (err) {
+        logger.error(`[cleanup] Failed to close session ${session.session_id}:`, err);
+      }
+    }
+  } catch (err) {
+    logger.error("[cleanup] cleanupStaleSessions error:", err);
+  }
+}
+
+/**
+ * EXPIRED SLOT CLEANUP
+ *
+ * Finds slots that are still "available" or "full" but whose date has passed
+ * without a session ever being started. Cancels them and their pending bookings.
+ * Students with pending (unpaid) bookings get them cancelled automatically.
+ * Students with confirmed (paid) bookings get their transactions marked eligible
+ * for refund review by admin.
+ */
+export async function cleanupExpiredSlots(): Promise<void> {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const expiredSlots = await prisma.timeSlot.findMany({
+      where: {
+        status:    { in: ["available", "full"] },
+        slot_date: { lt: today },
+        // Only slots that never had a session started
+        session:   null,
+      },
+    });
+
+    if (expiredSlots.length === 0) return;
+
+    logger.info(`[cleanup] Found ${expiredSlots.length} expired slot(s) — auto-cancelling.`);
+
+    for (const slot of expiredSlots) {
+      try {
+        // Cancel pending (unpaid) bookings — no money involved
+        await prisma.booking.updateMany({
+          where: { slot_id: slot.slot_id, status: "pending" },
+          data:  { status: "cancelled" },
+        });
+
+        // For confirmed (paid) bookings — mark as cancelled and flag transactions
+        // for admin review (payout_status: "disputed" so admin can decide refund)
+        const confirmedBookings = await prisma.booking.findMany({
+          where: { slot_id: slot.slot_id, status: "confirmed" },
+        });
+
+        for (const booking of confirmedBookings) {
+          await prisma.booking.update({
+            where: { booking_id: booking.booking_id },
+            data:  { status: "cancelled" },
+          });
+          // Flag the transaction for admin review — tutor never showed up
+          await prisma.transaction.updateMany({
+            where: { booking_id: booking.booking_id, payment_status: "paid" },
+            data:  { payout_status: "disputed" },
+          });
+        }
+
+        // Mark slot as cancelled
+        await prisma.timeSlot.update({
+          where: { slot_id: slot.slot_id },
+          data:  { status: "cancelled" },
+        });
+
+        logger.info(`[cleanup] Slot ${slot.slot_id} expired and auto-cancelled.`);
+      } catch (err) {
+        logger.error(`[cleanup] Failed to cancel slot ${slot.slot_id}:`, err);
+      }
+    }
+  } catch (err) {
+    logger.error("[cleanup] cleanupExpiredSlots error:", err);
+  }
+}
 
 export const sessionService = {
   /**
@@ -35,6 +186,10 @@ export const sessionService = {
     tutorUserId: number,
     tenantId: number
   ): Promise<StartSessionResponse> {
+    // Run stale cleanup lazily on every session action
+    await cleanupStaleSessions();
+    await cleanupExpiredSlots();
+
     // 1. Load booking and validate ownership
     const booking = await prisma.booking.findFirst({
       where: { booking_id: bookingId, tenant_id: tenantId },
@@ -127,6 +282,9 @@ export const sessionService = {
     studentUserId: number,
     tenantId: number
   ): Promise<JoinSessionResponse> {
+    // Run stale cleanup before join — prevents joining a ghost session
+    await cleanupStaleSessions();
+
     // 1. Load the session
     const session = await prisma.session.findFirst({
       where: { session_id: sessionId, tenant_id: tenantId },
@@ -234,6 +392,9 @@ export const sessionService = {
   },
 
   async getSession(sessionId: number, tenantId: number) {
+    // Run stale cleanup on every read — fixes ghost sessions on frontend polling
+    await cleanupStaleSessions();
+
     const session = await prisma.session.findFirst({
       where:   { session_id: sessionId, tenant_id: tenantId },
       include: {

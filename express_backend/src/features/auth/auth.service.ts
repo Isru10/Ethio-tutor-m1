@@ -70,7 +70,7 @@ export const authService = {
 
     return {
       user,
-      accessToken:  signAccessToken({ userId: user.user_id, tenantId: user.tenant_id, role: user.role, tier: user.tier }),
+      accessToken:  signAccessToken({ userId: user.user_id, tenantId: user.tenant_id, role: user.role, tier: user.tier, status: user.status }),
       refreshToken: signRefreshToken(user.user_id),
     };
   },
@@ -84,7 +84,7 @@ export const authService = {
     const { password: _pw, ...safeUser } = user;
     return {
       user: safeUser,
-      accessToken:  signAccessToken({ userId: user.user_id, tenantId: user.tenant_id, role: user.role, tier: user.tier }),
+      accessToken:  signAccessToken({ userId: user.user_id, tenantId: user.tenant_id, role: user.role, tier: user.tier, status: user.status }),
       refreshToken: signRefreshToken(user.user_id),
     };
   },
@@ -93,7 +93,24 @@ export const authService = {
     const payload = verifyRefreshToken(token);
     const user = await prisma.user.findUniqueOrThrow({ where: { user_id: payload.userId } });
     return {
-      accessToken: signAccessToken({ userId: user.user_id, tenantId: user.tenant_id, role: user.role, tier: user.tier }),
+      accessToken: signAccessToken({ userId: user.user_id, tenantId: user.tenant_id, role: user.role, tier: user.tier, status: user.status }),
+    };
+  },
+
+  /**
+   * Issue a fresh access token for an already-authenticated user.
+   * Used when user state changes server-side (e.g. tutor approval).
+   */
+  async freshTokenForUser(userId: number) {
+    const user = await prisma.user.findUniqueOrThrow({ where: { user_id: userId } });
+    return {
+      accessToken: signAccessToken({
+        userId:   user.user_id,
+        tenantId: user.tenant_id,
+        role:     user.role,
+        tier:     user.tier,
+        status:   user.status,
+      }),
     };
   },
 };

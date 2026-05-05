@@ -10,13 +10,31 @@ export const reviewService = {
     if (booking.status !== "completed") throw new AppError("You can only review a completed session.", 400);
     if (booking.review)                 throw new AppError("You already reviewed this session.", 409);
 
+    // teacherId from the frontend is Session.teacher_id = User.user_id
+    // Review.teacher_id expects TeacherProfile.teacher_profile_id — resolve it
+    const teacherProfile = await prisma.teacherProfile.findUnique({ where: { user_id: teacherId } });
+    if (!teacherProfile) throw new AppError("Tutor profile not found.", 404);
+    const teacherProfileId = teacherProfile.teacher_profile_id;
+
+    // student_id on Review also expects StudentProfile.student_profile_id
+    const studentProfile = await prisma.studentProfile.findUnique({ where: { user_id: studentId } });
+    if (!studentProfile) throw new AppError("Student profile not found.", 404);
+    const studentProfileId = studentProfile.student_profile_id;
+
     const review = await prisma.review.create({
-      data: { tenant_id: tenantId, booking_id: bookingId, student_id: studentId, teacher_id: teacherId, rating, comment },
+      data: {
+        tenant_id:  tenantId,
+        booking_id: bookingId,
+        student_id: studentProfileId,
+        teacher_id: teacherProfileId,
+        rating,
+        comment,
+      },
     });
 
     // Auto-recalculate tutor's average_rating
-    const { _avg } = await prisma.review.aggregate({ where: { teacher_id: teacherId }, _avg: { rating: true } });
-    await prisma.teacherProfile.update({ where: { user_id: teacherId }, data: { average_rating: _avg.rating ?? 0 } });
+    const { _avg } = await prisma.review.aggregate({ where: { teacher_id: teacherProfileId }, _avg: { rating: true } });
+    await prisma.teacherProfile.update({ where: { teacher_profile_id: teacherProfileId }, data: { average_rating: _avg.rating ?? 0 } });
 
     return review;
   },

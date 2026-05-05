@@ -31,4 +31,17 @@ export const authController = {
   getMe: (req: Request, res: Response) => {
     res.json({ status: "success", data: req.user });
   },
+
+  /**
+   * GET /auth/fresh-token
+   * Issues a brand-new access token based on current DB state.
+   * Called by the frontend when user status changes (e.g. tutor gets approved).
+   * This ensures the JWT cookie reflects the latest role/status.
+   */
+  freshToken: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = await authService.freshTokenForUser(req.user!.user_id);
+      res.json({ status: "success", data });
+    } catch (err) { next(err); }
+  },
 };
