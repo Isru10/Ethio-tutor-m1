@@ -27,4 +27,18 @@ export const tutorController = {
     try { res.json({ status: "success", data: await tutorService.getSlots(Number(req.params.id), req.user!.tenant_id) }); }
     catch (err) { next(err); }
   },
+
+  getMyAvailability: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = await tutorService.getMyAvailability(req.user!.user_id, req.user!.tenant_id);
+      res.json({ status: "success", data });
+    } catch (err) { next(err); }
+  },
+
+  getMyProfile: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = await tutorService.getMyProfile(req.user!.user_id, req.user!.tenant_id);
+      res.json({ status: "success", data });
+    } catch (err) { next(err); }
+  },
 };

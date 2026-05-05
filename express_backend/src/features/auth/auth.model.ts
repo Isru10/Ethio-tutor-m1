@@ -29,6 +29,10 @@ export const RegisterSchema = z.object({
   payout_account:   z.string().optional(),
   image_profile:    z.string().url().optional(),
   file:             z.string().url().optional(),
+  // Tutor availability preferences (stored for smart slot creation)
+  available_days:        z.array(z.string()).optional(),  // ["Mon","Tue","Wed"]
+  available_times:       z.array(z.string()).optional(),  // ["07:00 – 08:00","09:00 – 10:00"]
+  default_max_students:  z.coerce.number().int().min(1).max(10).optional(),
 });
 
 export const LoginSchema = z.object({

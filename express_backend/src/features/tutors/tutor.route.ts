@@ -10,6 +10,12 @@ router.use(authMiddleware);
 router.get("/",           tutorController.getAll);
 router.patch("/profile",  requireRole("TUTOR"), tutorController.updateProfile);
 
+// Tutor's own availability preferences (days + times from signup + existing slots)
+router.get("/my-availability", requireRole("TUTOR"), tutorController.getMyAvailability);
+
+// Tutor's own full profile (for the profile edit page)
+router.get("/my-profile",      requireRole("TUTOR"), tutorController.getMyProfile);
+
 // Verification queue — accessible by ADMIN, SUPER_ADMIN, MODERATOR
 router.get("/pending",              requireRole("ADMIN", "SUPER_ADMIN", "MODERATOR"), verificationController.getPending);
 router.post("/:id/claim",           requireRole("ADMIN", "SUPER_ADMIN", "MODERATOR"), verificationController.claim);

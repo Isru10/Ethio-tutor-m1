@@ -157,6 +157,10 @@ model TeacherProfile {
   payout_phone       String? @db.VarChar(20)   // Telebirr number
   payout_bank        String? @db.VarChar(100)  // Bank name
   payout_account     String? @db.VarChar(50)   // Bank account number
+  // Availability preferences (set during signup, drives smart slot creation)
+  available_days     String? @db.VarChar(200)  // JSON: ["Mon","Tue","Wed"]
+  available_times    String? @db.VarChar(1000) // JSON: ["07:00 – 08:00","09:00 – 10:00"]
+  default_max_students Int   @default(5)
   // Verification
   verification_status String  @default("pending") @db.VarChar(20) // pending | approved | rejected | pending_info
   verification_note   String? @db.Text          // reviewer's note

@@ -53,7 +53,7 @@ export const bookingService = {
             session: { select: { session_id: true, status: true } },
           },
         },
-        student: { include: { user: { select: { name: true } } } },
+        student: { include: { user: { select: { user_id: true, name: true, email: true } } } },
       },
       orderBy: { created_at: "desc" },
     });
